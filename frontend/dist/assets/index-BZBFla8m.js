@@ -1,0 +1,1 @@
+async function e(n){console.log("revealItemInDir not implemented in zero-native:",n)}async function o(n){console.log("openUrl not implemented in zero-native:",n)}async function t(n){console.log("openPath not implemented in zero-native:",n)}export{t as openPath,o as openUrl,e as revealItemInDir};

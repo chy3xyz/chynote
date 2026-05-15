@@ -1,0 +1,5 @@
+const lang = Object.freeze({displayName:"CODEOWNERS",name:"codeowners",patterns:[{include:"#comment"},{include:"#pattern"},{include:"#owner"}],repository:{comment:{patterns:[{begin:/^\p{space}*#/dgv,captures:{"0":{name:"punctuation.definition.comment.codeowners"}},end:/(?=\n?$)/dgv,name:"comment.line.codeowners"}]},owner:{match:/\P{space}*@\P{space}+/dgv,name:"storage.type.function.codeowners"},pattern:{match:/^\p{space}*(\P{space}+)/dgv,name:"variable.other.codeowners"}},scopeName:"text.codeowners",embeddedLangs:undefined,aliases:undefined})
+
+export default [
+lang
+]

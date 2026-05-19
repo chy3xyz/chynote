@@ -1,5 +1,7 @@
 import { ArrowSquareOut as ExternalLink, Copy } from '@phosphor-icons/react'
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+
+console.log('[SingleEditorView] Module loaded')
 import { invoke } from '@tauri-apps/api/core'
 import {
   BlockNoteViewRaw,
@@ -123,12 +125,16 @@ class BlockNoteRenderRecoveryBoundary extends Component<{
   }
 
   componentDidCatch(error: unknown) {
-    if (!isRecoverableBlockNoteRenderError(error)) return
+    console.error('[BlockNoteRenderRecovery] componentDidCatch error:', error)
     if (this.state.retries >= MAX_BLOCKNOTE_RENDER_RECOVERY_RETRIES) return
 
     const attempt = this.state.retries + 1
-    markRecoveredBlockNoteRenderError(error)
-    trackEvent('editor_render_recovered', { reason: 'block_missing_id', attempt })
+    if (isRecoverableBlockNoteRenderError(error)) {
+      markRecoveredBlockNoteRenderError(error)
+      trackEvent('editor_render_recovered', { reason: 'block_missing_id', attempt })
+    } else {
+      console.warn('[BlockNoteRenderRecovery] Non-recoverable error, trying HTML fallback:', error instanceof Error ? error.message : String(error))
+    }
     this.props.onRecover?.(attempt)
     this.setState(({ recoveryKey, retries }) => ({
       error: null,
@@ -139,10 +145,8 @@ class BlockNoteRenderRecoveryBoundary extends Component<{
 
   render() {
     if (this.state.error) {
-      if (
-        !isRecoverableBlockNoteRenderError(this.state.error)
-        || this.state.retries >= MAX_BLOCKNOTE_RENDER_RECOVERY_RETRIES
-      ) {
+      if (this.state.retries >= MAX_BLOCKNOTE_RENDER_RECOVERY_RETRIES) {
+        console.error('[BlockNoteRenderRecovery] Max retries exhausted, re-throwing:', this.state.error)
         throw this.state.error
       }
 
@@ -156,18 +160,22 @@ class BlockNoteRenderRecoveryBoundary extends Component<{
 function repairEditorDocumentForRenderRecovery(editor: ReturnType<typeof useCreateBlockNote>) {
   const current = editor.document
   const safeBlocks = repairMalformedEditorBlocks(current)
-  if (safeBlocks === current) return
-
-  try {
-    editor.replaceBlocks(current, safeBlocks)
-  } catch (error) {
-    console.warn('[editor] Failed to repair BlockNote document before render recovery:', error)
+  if (safeBlocks !== current) {
     try {
-      const markup = editor.blocksToHTMLLossy(safeBlocks)
-      editor._tiptapEditor.commands.setContent(markup)
-    } catch (fallbackError) {
-      console.warn('[editor] Failed to apply repaired BlockNote document fallback:', fallbackError)
+      editor.replaceBlocks(current, safeBlocks)
+      return
+    } catch (error) {
+      console.warn('[editor] replaceBlocks failed during render recovery:', error)
     }
+  }
+
+  // Always try HTML fallback — fixes renderSpec errors where schema rendering
+  // fails but the document content itself is valid.
+  try {
+    const markup = editor.blocksToHTMLLossy(safeBlocks)
+    editor._tiptapEditor.commands.setContent(markup)
+  } catch (fallbackError) {
+    console.warn('[editor] HTML setContent fallback also failed:', fallbackError)
   }
 }
 

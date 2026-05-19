@@ -10,6 +10,10 @@ import { ArchivedNoteBanner } from '../ArchivedNoteBanner'
 import { ConflictNoteBanner } from '../ConflictNoteBanner'
 import { RawEditorView } from '../RawEditorView'
 import { SingleEditorView } from '../SingleEditorView'
+import { PretextEditor } from '../PretextEditor'
+
+// Feature flag to enable PretextEditor instead of BlockNote
+const USE_PRETEXT_EDITOR = import.meta.env.DEV && import.meta.env.VITE_USE_PRETEXT_EDITOR === 'true'
 import type { useEditorContentModel } from './useEditorContentModel'
 
 type EditorContentModel = ReturnType<typeof useEditorContentModel>
@@ -374,6 +378,22 @@ function EditorCanvas({
   | 'locale'
 >) {
   if (!showEditor) return null
+
+  if (USE_PRETEXT_EDITOR) {
+    return (
+      <EditorFindScope
+        className="editor-scroll-area"
+        style={cssVars as React.CSSProperties}
+      >
+        <div className="editor-content-wrapper">
+          <PretextEditor
+            content={activeTab?.content ?? ''}
+            readOnly={isDeletedPreview}
+          />
+        </div>
+      </EditorFindScope>
+    )
+  }
 
   return (
     <EditorFindScope

@@ -1,6 +1,17 @@
-import { StrictMode } from 'react'
+// import { StrictMode } from 'react'
 import * as Sentry from '@sentry/react'
 import { createRoot } from 'react-dom/client'
+
+console.log('[Tolaria] main.tsx loaded')
+
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error('[window.onerror]', { message, source, lineno, colno, error, stack: error?.stack })
+  return false
+}
+
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('[unhandledrejection]', event.reason)
+})
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './index.css'
 import App from './App.tsx'
@@ -176,9 +187,13 @@ function captureRecoverableReactRootError(
   error: unknown,
   errorInfo: { componentStack?: string },
 ): void {
+  console.error('[Tolaria] captureRecoverableReactRootError:', error)
   const componentStack = errorInfo.componentStack ?? ''
+  console.error('[Tolaria] componentStack:', componentStack)
   if (isResizeObserverLoopError(error)) return
-  if (isRecoveredBlockNoteRenderError(error, componentStack)) return
+  const isRecoverable = isRecoveredBlockNoteRenderError(error, componentStack)
+  console.error('[Tolaria] isRecoveredBlockNoteRenderError:', isRecoverable)
+  if (isRecoverable) return
 
   captureReactRootError(error, { componentStack })
 }
@@ -188,11 +203,10 @@ createRoot(document.getElementById('root')!, {
   onUncaughtError: captureReactRootError,
   onRecoverableError: captureRecoverableReactRootError,
 }).render(
-  <StrictMode>
-    <TooltipProvider>
-      <LinuxTitlebar />
-      <App />
-      <FrontendReadyMarker />
-    </TooltipProvider>
-  </StrictMode>,
+  // Temporarily removed StrictMode for debugging
+  <TooltipProvider>
+    <LinuxTitlebar />
+    <App />
+    <FrontendReadyMarker />
+  </TooltipProvider>,
 )

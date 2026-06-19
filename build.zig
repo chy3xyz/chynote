@@ -2,7 +2,7 @@ const std = @import("std");
 
 const PlatformOption = enum {
     auto,
-    @"null",
+    null,
     macos,
     linux,
     windows,
@@ -26,10 +26,17 @@ const PackageTarget = enum {
     linux,
 };
 
-const default_zero_native_path ="/Users/n0x/.nvm/versions/node/v23.11.1/lib/node_modules/zero-native";
-const app_exe_name = "tolaria-zn";
+const default_zero_native_path = "zero-native";
+const app_exe_name = "chynote-zn";
+
+const generated_manifest_bridge_path = "src/generated/app_manifest_bridge.zig";
 
 pub fn build(b: *std.Build) void {
+    // Generate src/generated/app_manifest_bridge.zig from app.zon so that the
+    // bridge command policies in src/main.zig are derived from the manifest.
+    // This file is regenerated on every build and is gitignored.
+    generateAppManifestBridge(b);
+
     const target = zeroNativeTarget(b);
     const optimize = b.standardOptimizeOption(.{});
     const platform_option = b.option(PlatformOption, "platform", "Desktop backend: auto, null, macos, linux, windows") orelse .auto;
@@ -44,7 +51,7 @@ pub fn build(b: *std.Build) void {
     const zero_native_path = b.option([]const u8, "zero-native-path", "Path to the zero-native framework checkout") orelse default_zero_native_path;
     const optimize_name = @tagName(optimize);
     const selected_platform: PlatformOption = switch (platform_option) {
-        .auto => if (target.result.os.tag == .macos) .macos else if (target.result.os.tag == .linux) .linux else if (target.result.os.tag == .windows) .windows else .@"null",
+        .auto => if (target.result.os.tag == .macos) .macos else if (target.result.os.tag == .linux) .linux else if (target.result.os.tag == .windows) .windows else .null,
         else => platform_option,
     };
     if (selected_platform == .macos and target.result.os.tag != .macos) {
@@ -60,15 +67,18 @@ pub fn build(b: *std.Build) void {
     const web_engine = web_engine_override orelse app_web_engine.web_engine;
     const cef_dir = cef_dir_override orelse defaultCefDir(selected_platform, app_web_engine.cef_dir);
     const cef_auto_install = cef_auto_install_override orelse app_web_engine.cef_auto_install;
-    if (web_engine == .chromium and selected_platform == .@"null") {
+    if (web_engine == .chromium and selected_platform == .null) {
         @panic("-Dweb-engine=chromium requires -Dplatform=macos, linux, or windows");
     }
+
+    const sdk_path: ?[]const u8 = if (target.result.os.tag == .macos) macosSdkPath(b, &target.result) else null;
+    defer if (sdk_path) |path| b.allocator.free(path);
 
     const zero_native_mod = zeroNativeModule(b, target, optimize, zero_native_path);
     const options = b.addOptions();
     options.addOption([]const u8, "platform", switch (selected_platform) {
         .auto => unreachable,
-        .@"null" => "null",
+        .null => "null",
         .macos => "macos",
         .linux => "linux",
         .windows => "windows",
@@ -80,22 +90,35 @@ pub fn build(b: *std.Build) void {
     options.addOption(bool, "js_bridge", js_bridge_enabled);
     const options_mod = options.createModule();
 
+    const globals_mod = localModule(b, target, optimize, "src/globals.zig");
+    globals_mod.addImport("zero-native", zero_native_mod);
+
     const runner_mod = localModule(b, target, optimize, "src/runner.zig");
     runner_mod.addImport("zero-native", zero_native_mod);
     runner_mod.addImport("build_options", options_mod);
+    runner_mod.addImport("globals", globals_mod);
+
+    const parsing_mod = localModule(b, target, optimize, "src/parsing.zig");
+    parsing_mod.addImport("zero-native", zero_native_mod);
 
     const vault_mod = localModule(b, target, optimize, "src/vault.zig");
     vault_mod.addImport("zero-native", zero_native_mod);
+    vault_mod.addImport("parsing", parsing_mod);
+    vault_mod.addImport("globals", globals_mod);
 
     const git_mod = localModule(b, target, optimize, "src/git.zig");
     git_mod.addImport("zero-native", zero_native_mod);
 
     const system_mod = localModule(b, target, optimize, "src/system.zig");
     system_mod.addImport("zero-native", zero_native_mod);
+    system_mod.addImport("globals", globals_mod);
 
     const app_mod = localModule(b, target, optimize, "src/main.zig");
+    const app_manifest_bridge_mod = localModule(b, target, optimize, generated_manifest_bridge_path);
+    app_manifest_bridge_mod.addImport("zero-native", zero_native_mod);
     app_mod.addImport("zero-native", zero_native_mod);
     app_mod.addImport("runner", runner_mod);
+    app_mod.addImport("app_manifest_bridge", app_manifest_bridge_mod);
     app_mod.addImport("vault", vault_mod);
     app_mod.addImport("git", git_mod);
     app_mod.addImport("system", system_mod);
@@ -103,17 +126,19 @@ pub fn build(b: *std.Build) void {
         .name = app_exe_name,
         .root_module = app_mod,
     });
-    linkPlatform(b, target, app_mod, exe, selected_platform, web_engine, zero_native_path, cef_dir, cef_auto_install);
+    linkPlatform(b, target, app_mod, exe, selected_platform, web_engine, zero_native_path, cef_dir, cef_auto_install, sdk_path);
     b.installArtifact(exe);
 
-    const frontend_install = b.addSystemCommand(&.{ "npm", "install", "--prefix", "frontend" });
+    const frontend_install = b.addSystemCommand(&.{ "pnpm", "--dir", "frontend", "install" });
     const frontend_install_step = b.step("frontend-install", "Install frontend dependencies");
     frontend_install_step.dependOn(&frontend_install.step);
 
-    const frontend_build = b.addSystemCommand(&.{ "npm", "--prefix", "frontend", "run", "build" });
+    const frontend_build = b.addSystemCommand(&.{ "pnpm", "--dir", "frontend", "run", "build" });
     frontend_build.step.dependOn(&frontend_install.step);
     const frontend_step = b.step("frontend-build", "Build the frontend");
     frontend_step.dependOn(&frontend_build.step);
+
+    exe.step.dependOn(&frontend_build.step);
 
     const run = b.addRunArtifact(exe);
     run.step.dependOn(&frontend_build.step);
@@ -121,7 +146,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run.step);
 
-    const dev = b.addSystemCommand(&.{"zero-native", "dev"});
+    const dev = b.addSystemCommand(&.{ "pnpm", "--dir", "frontend", "exec", "zero-native", "dev" });
     dev.addArgs(&.{ "--manifest", "app.zon", "--binary" });
     dev.addFileArg(exe.getEmittedBin());
     dev.step.dependOn(&exe.step);
@@ -136,7 +161,8 @@ pub fn build(b: *std.Build) void {
         @tagName(package_target),
         "--manifest",
         "app.zon",
-        "--assets","frontend/dist",
+        "--assets",
+        "frontend/dist",
         "--optimize",
         optimize_name,
         "--output",
@@ -154,15 +180,22 @@ pub fn build(b: *std.Build) void {
     const tests = b.addTest(.{ .root_module = app_mod });
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
+
+    const check_bridge = b.addExecutable(.{
+        .name = "check-bridge",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("scripts/check-bridge.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }),
+    });
+    const check_bridge_step = b.step("check-bridge", "Verify src/main.zig bridge handlers match app.zon");
+    check_bridge_step.dependOn(&b.addRunArtifact(check_bridge).step);
 }
 
 fn zeroNativeTarget(b: *std.Build) std.Build.ResolvedTarget {
     const target = b.standardTargetOptions(.{});
     if (target.result.os.tag != .macos) return target;
-
-    if (b.sysroot == null) {
-        b.sysroot = macosSdkPath(b) orelse b.sysroot;
-    }
 
     var query = target.query;
     query.os_tag = .macos;
@@ -170,22 +203,11 @@ fn zeroNativeTarget(b: *std.Build) std.Build.ResolvedTarget {
     return b.resolveTargetQuery(query);
 }
 
-fn macosSdkPath(b: *std.Build) ?[]const u8 {
+fn macosSdkPath(b: *std.Build, target: *const std.Target) ?[]const u8 {
     if (b.graph.environ_map.get("SDKROOT")) |sdkroot| {
         if (sdkroot.len > 0) return sdkroot;
     }
-
-    const result = std.process.run(b.allocator, b.graph.io, .{
-        .argv = &.{ "xcrun", "--sdk", "macosx", "--show-sdk-path" },
-        .stdout_limit = .limited(4096),
-        .stderr_limit = .limited(4096),
-    }) catch return null;
-    defer b.allocator.free(result.stderr);
-    if (result.term != .exited or result.term.exited != 0) {
-        b.allocator.free(result.stdout);
-        return null;
-    }
-    return std.mem.trimEnd(u8, result.stdout, "\r\n");
+    return std.zig.system.darwin.getSdk(b.allocator, b.graph.io, target);
 }
 
 fn localModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, path: []const u8) *std.Build.Module {
@@ -233,12 +255,12 @@ fn externalModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     });
 }
 
-fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.Build.Module, exe: *std.Build.Step.Compile, platform: PlatformOption, web_engine: WebEngineOption, zero_native_path: []const u8, cef_dir: []const u8, cef_auto_install: bool) void {
+fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.Build.Module, exe: *std.Build.Step.Compile, platform: PlatformOption, web_engine: WebEngineOption, zero_native_path: []const u8, cef_dir: []const u8, cef_auto_install: bool, sdk_path: ?[]const u8) void {
     if (platform == .macos) {
         switch (web_engine) {
             .system => {
-                const sdk_include = if (b.sysroot) |sysroot| b.fmt("-I{s}/usr/include", .{sysroot}) else "";
-                const flags: []const []const u8 = if (b.sysroot) |sysroot| &.{ "-fobjc-arc", "-ObjC", "-mmacosx-version-min=11.0", "-isysroot", sysroot, sdk_include } else &.{ "-fobjc-arc", "-ObjC", "-mmacosx-version-min=11.0" };
+                const sdk_include = if (sdk_path) |sdk| b.fmt("-I{s}/usr/include", .{sdk}) else "";
+                const flags: []const []const u8 = if (sdk_path) |sdk| &.{ "-fobjc-arc", "-ObjC", "-mmacosx-version-min=11.0", "-isysroot", sdk, sdk_include } else &.{ "-fobjc-arc", "-ObjC", "-mmacosx-version-min=11.0" };
                 app_mod.addCSourceFile(.{ .file = zeroNativePath(b, zero_native_path, "src/platform/macos/appkit_host.m"), .flags = flags });
                 app_mod.linkFramework("WebKit", .{});
             },
@@ -251,8 +273,8 @@ fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.B
                 exe.step.dependOn(&cef_check.step);
                 const include_arg = b.fmt("-I{s}", .{cef_dir});
                 const define_arg = b.fmt("-DZERO_NATIVE_CEF_DIR=\"{s}\"", .{cef_dir});
-                const sdk_include = if (b.sysroot) |sysroot| b.fmt("-I{s}/usr/include", .{sysroot}) else "";
-                const flags: []const []const u8 = if (b.sysroot) |sysroot| &.{ "-fobjc-arc", "-ObjC++", "-std=c++17", "-stdlib=libc++", "-mmacosx-version-min=11.0", "-isysroot", sysroot, sdk_include, include_arg, define_arg } else &.{ "-fobjc-arc", "-ObjC++", "-std=c++17", "-stdlib=libc++", "-mmacosx-version-min=11.0", include_arg, define_arg };
+                const sdk_include = if (sdk_path) |sdk| b.fmt("-I{s}/usr/include", .{sdk}) else "";
+                const flags: []const []const u8 = if (sdk_path) |sdk| &.{ "-fobjc-arc", "-ObjC++", "-std=c++17", "-stdlib=libc++", "-mmacosx-version-min=11.0", "-isysroot", sdk, sdk_include, include_arg, define_arg } else &.{ "-fobjc-arc", "-ObjC++", "-std=c++17", "-stdlib=libc++", "-mmacosx-version-min=11.0", include_arg, define_arg };
                 app_mod.addCSourceFile(.{ .file = zeroNativePath(b, zero_native_path, "src/platform/macos/cef_host.mm"), .flags = flags });
                 app_mod.addObjectFile(b.path(b.fmt("{s}/libcef_dll_wrapper/libcef_dll_wrapper.a", .{cef_dir})));
                 app_mod.addFrameworkPath(b.path(b.fmt("{s}/Release", .{cef_dir})));
@@ -260,8 +282,9 @@ fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.B
                 app_mod.addRPath(.{ .cwd_relative = "@executable_path/Frameworks" });
             },
         }
-        if (b.sysroot) |sysroot| {
-            app_mod.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+        if (sdk_path) |sdk| {
+            app_mod.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "System/Library/Frameworks" }) });
+            app_mod.addLibraryPath(.{ .cwd_relative = b.pathJoin(&.{ sdk, "usr/lib" }) });
         }
         app_mod.linkFramework("AppKit", .{});
         app_mod.linkFramework("Foundation", .{});
@@ -295,7 +318,7 @@ fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.B
         if (web_engine == .chromium) app_mod.linkSystemLibrary("stdc++", .{});
     } else if (platform == .windows) {
         switch (web_engine) {
-            .system => app_mod.addCSourceFile(.{ .file = zeroNativePath(b, zero_native_path, "src/platform/windows/webview2_host.cpp"), .flags = &.{ "-std=c++17" } }),
+            .system => app_mod.addCSourceFile(.{ .file = zeroNativePath(b, zero_native_path, "src/platform/windows/webview2_host.cpp"), .flags = &.{"-std=c++17"} }),
             .chromium => {
                 const cef_check = addCefCheck(b, target, cef_dir);
                 if (cef_auto_install) {
@@ -322,20 +345,23 @@ fn linkPlatform(b: *std.Build, target: std.Build.ResolvedTarget, app_mod: *std.B
 fn addCefRuntimeRunFiles(b: *std.Build, target: std.Build.ResolvedTarget, run: *std.Build.Step.Run, exe: *std.Build.Step.Compile, web_engine: WebEngineOption, cef_dir: []const u8) void {
     if (web_engine != .chromium) return;
     if (target.result.os.tag != .macos) return;
-    const copy = b.addSystemCommand(&.{ "sh", "-c", b.fmt(
-        \\set -e
-        \\exe="$0"
-        \\exe_dir="$(dirname "$exe")"
-        \\rm -rf "zig-out/Frameworks/Chromium Embedded Framework.framework" "zig-out/bin/Frameworks/Chromium Embedded Framework.framework" ".zig-cache/o/Frameworks/Chromium Embedded Framework.framework" &&
-        \\mkdir -p "zig-out/Frameworks" "zig-out/bin/Frameworks" ".zig-cache/o/Frameworks" "$exe_dir" &&
-        \\cp -R "{s}/Release/Chromium Embedded Framework.framework" "zig-out/Frameworks/" &&
-        \\cp -R "{s}/Release/Chromium Embedded Framework.framework" "zig-out/bin/Frameworks/" &&
-        \\cp -R "{s}/Release/Chromium Embedded Framework.framework" ".zig-cache/o/Frameworks/" &&
-        \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" "$exe_dir/" &&
-        \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" "$exe_dir/" &&
-        \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" "$exe_dir/" &&
-        \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/vk_swiftshader_icd.json" "$exe_dir/"
-    , .{ cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir }) });
+    const copy = b.addSystemCommand(&.{
+        "sh", "-c",
+        b.fmt(
+            \\set -e
+            \\exe="$0"
+            \\exe_dir="$(dirname "$exe")"
+            \\rm -rf "zig-out/Frameworks/Chromium Embedded Framework.framework" "zig-out/bin/Frameworks/Chromium Embedded Framework.framework" ".zig-cache/o/Frameworks/Chromium Embedded Framework.framework" &&
+            \\mkdir -p "zig-out/Frameworks" "zig-out/bin/Frameworks" ".zig-cache/o/Frameworks" "$exe_dir" &&
+            \\cp -R "{s}/Release/Chromium Embedded Framework.framework" "zig-out/Frameworks/" &&
+            \\cp -R "{s}/Release/Chromium Embedded Framework.framework" "zig-out/bin/Frameworks/" &&
+            \\cp -R "{s}/Release/Chromium Embedded Framework.framework" ".zig-cache/o/Frameworks/" &&
+            \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libEGL.dylib" "$exe_dir/" &&
+            \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libGLESv2.dylib" "$exe_dir/" &&
+            \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/libvk_swiftshader.dylib" "$exe_dir/" &&
+            \\cp "{s}/Release/Chromium Embedded Framework.framework/Libraries/vk_swiftshader_icd.json" "$exe_dir/"
+        , .{ cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir }),
+    });
     copy.addFileArg(exe.getEmittedBin());
     run.step.dependOn(&copy.step);
 }
@@ -343,37 +369,37 @@ fn addCefRuntimeRunFiles(b: *std.Build, target: std.Build.ResolvedTarget, run: *
 fn addCefCheck(b: *std.Build, target: std.Build.ResolvedTarget, cef_dir: []const u8) *std.Build.Step.Run {
     const script = switch (target.result.os.tag) {
         .macos => b.fmt(
-        \\test -f "{s}/include/cef_app.h" &&
-        \\test -d "{s}/Release/Chromium Embedded Framework.framework" &&
-        \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.a" || {{
-        \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
-        \\  echo "Expected:" >&2
-        \\  echo "  {s}/include/cef_app.h" >&2
-        \\  echo "  {s}/Release/Chromium Embedded Framework.framework" >&2
-        \\  echo "  {s}/libcef_dll_wrapper/libcef_dll_wrapper.a" >&2
-        \\  echo "Fix with: zero-native cef install --dir {s}" >&2
-        \\  echo "Or rerun with: -Dcef-auto-install=true" >&2
-        \\  echo "Pass -Dcef-dir=/path/to/cef if your bundle lives elsewhere." >&2
-        \\  exit 1
-        \\}}
+            \\test -f "{s}/include/cef_app.h" &&
+            \\test -d "{s}/Release/Chromium Embedded Framework.framework" &&
+            \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.a" || {{
+            \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
+            \\  echo "Expected:" >&2
+            \\  echo "  {s}/include/cef_app.h" >&2
+            \\  echo "  {s}/Release/Chromium Embedded Framework.framework" >&2
+            \\  echo "  {s}/libcef_dll_wrapper/libcef_dll_wrapper.a" >&2
+            \\  echo "Fix with: zero-native cef install --dir {s}" >&2
+            \\  echo "Or rerun with: -Dcef-auto-install=true" >&2
+            \\  echo "Pass -Dcef-dir=/path/to/cef if your bundle lives elsewhere." >&2
+            \\  exit 1
+            \\}}
         , .{ cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir, cef_dir }),
         .linux => b.fmt(
-        \\test -f "{s}/include/cef_app.h" &&
-        \\test -f "{s}/Release/libcef.so" &&
-        \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.a" || {{
-        \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
-        \\  echo "Fix with: zero-native cef install --dir {s}" >&2
-        \\  exit 1
-        \\}}
+            \\test -f "{s}/include/cef_app.h" &&
+            \\test -f "{s}/Release/libcef.so" &&
+            \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.a" || {{
+            \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
+            \\  echo "Fix with: zero-native cef install --dir {s}" >&2
+            \\  exit 1
+            \\}}
         , .{ cef_dir, cef_dir, cef_dir, cef_dir }),
         .windows => b.fmt(
-        \\test -f "{s}/include/cef_app.h" &&
-        \\test -f "{s}/Release/libcef.dll" &&
-        \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.lib" || {{
-        \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
-        \\  echo "Fix with: zero-native cef install --dir {s}" >&2
-        \\  exit 1
-        \\}}
+            \\test -f "{s}/include/cef_app.h" &&
+            \\test -f "{s}/Release/libcef.dll" &&
+            \\test -f "{s}/libcef_dll_wrapper/libcef_dll_wrapper.lib" || {{
+            \\  echo "missing CEF dependency for -Dweb-engine=chromium" >&2
+            \\  echo "Fix with: zero-native cef install --dir {s}" >&2
+            \\  exit 1
+            \\}}
         , .{ cef_dir, cef_dir, cef_dir, cef_dir }),
         else => "echo unsupported CEF target >&2; exit 1",
     };
@@ -455,4 +481,142 @@ fn boolField(source: []const u8, field: []const u8) ?bool {
     if (std.mem.startsWith(u8, source[index..], "true")) return true;
     if (std.mem.startsWith(u8, source[index..], "false")) return false;
     return null;
+}
+
+const BridgeCommandEntry = struct {
+    name: []const u8,
+    origins: []const []const u8,
+};
+
+/// Read `app.zon`, extract the `bridge.commands` list, and emit
+/// `src/generated/app_manifest_bridge.zig` containing a Zig const array
+/// that `src/main.zig` imports. The generated file is rewritten on every
+/// build, so editing `app.zon` is enough to change the bridge policies.
+fn generateAppManifestBridge(b: *std.Build) void {
+    const source = @embedFile("app.zon");
+    const bridge = objectSection(source, ".bridge") orelse {
+        std.debug.panic("app.zon is missing .bridge block; cannot generate app_manifest_bridge.zig", .{});
+    };
+    const commands_body = arraySection(bridge, ".commands") orelse &.{};
+
+    var entries: std.ArrayList(BridgeCommandEntry) = .empty;
+    defer {
+        for (entries.items) |e| {
+            for (e.origins) |o| b.allocator.free(o);
+            b.allocator.free(e.origins);
+        }
+        entries.deinit(b.allocator);
+    }
+
+    // Walk the array body; each entry is `{ .name = "x", .origins = .{ "y" } }` or similar.
+    var index: usize = 0;
+    while (index < commands_body.len) {
+        const open = std.mem.indexOfScalarPos(u8, commands_body, index, '{') orelse break;
+        var depth: usize = 1;
+        var cursor: usize = open + 1;
+        while (cursor < commands_body.len and depth > 0) {
+            switch (commands_body[cursor]) {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                else => {},
+            }
+            cursor += 1;
+        }
+        if (depth != 0) break;
+        const entry_body = commands_body[open + 1 .. cursor - 1];
+        const name = stringField(entry_body, ".name") orelse {
+            std.debug.panic("app.zon: bridge command missing .name", .{});
+        };
+        const origins = parseOriginsList(b.allocator, entry_body) catch @panic("OOM");
+        entries.append(b.allocator, .{ .name = name, .origins = origins }) catch @panic("OOM");
+        index = cursor;
+    }
+
+    // Emit the Zig file.
+    var out: std.ArrayList(u8) = .empty;
+    defer out.deinit(b.allocator);
+    out.appendSlice(b.allocator,
+        \\// Auto-generated from app.zon. Do not edit by hand.
+        \\// Regenerated on every `zig build`.
+        \\const std = @import("std");
+        \\
+        \\pub const dev_origins = [_][]const u8{
+        \\    "zero://app",
+        \\    "zero://inline",
+        \\    "zero://local",
+        \\    "http://127.0.0.1:5173",
+        \\    "http://localhost:5173",
+        \\};
+        \\
+        \\pub const app_command_policies = [_]@import("zero-native").bridge.CommandPolicy{
+        \\
+    ) catch @panic("OOM");
+
+    for (entries.items) |entry| {
+        if (entry.origins.len == 0) {
+            out.print(b.allocator, "    .{{ .name = \"{s}\" }},\n", .{entry.name}) catch @panic("OOM");
+        } else {
+            out.print(b.allocator, "        .{{ .name = \"{s}\", .origins = &.{{ ", .{entry.name}) catch @panic("OOM");
+            for (entry.origins, 0..) |o, i| {
+                if (i > 0) out.appendSlice(b.allocator, ", ") catch @panic("OOM");
+                out.print(b.allocator, "\"{s}\"", .{o}) catch @panic("OOM");
+            }
+            out.appendSlice(b.allocator, " } },\n") catch @panic("OOM");
+        }
+    }
+    out.appendSlice(b.allocator, "};\n") catch @panic("OOM");
+
+    // Write atomically: write to a temp file, then rename. Paths are
+    // relative to the build root, where `b.pathJoin` resolves.
+    const cwd = std.Io.Dir.cwd();
+    const rel_path = b.pathJoin(&.{ "src", "generated", "app_manifest_bridge.zig" });
+    defer b.allocator.free(rel_path);
+    const tmp_path = b.fmt("{s}.tmp", .{rel_path});
+    defer b.allocator.free(tmp_path);
+    const io = b.graph.io;
+    {
+        const file = cwd.createFile(io, tmp_path, .{}) catch @panic("createFile failed");
+        defer file.close(io);
+        file.writeStreamingAll(io, out.items) catch @panic("write failed");
+    }
+    cwd.rename(tmp_path, cwd, rel_path, io) catch @panic("rename failed");
+}
+
+/// Find `.field = .{ "a", "b" }` (an array literal) and return the body.
+fn arraySection(source: []const u8, field: []const u8) ?[]const u8 {
+    const field_index = std.mem.indexOf(u8, source, field) orelse return null;
+    const equals = std.mem.indexOfScalarPos(u8, source, field_index, '=') orelse return null;
+    var i = equals + 1;
+    while (i < source.len and std.ascii.isWhitespace(source[i])) : (i += 1) {}
+    if (i >= source.len or source[i] != '.') return null;
+    i += 1;
+    if (i >= source.len or source[i] != '{') return null;
+    const open = i;
+    var depth: usize = 1;
+    i += 1;
+    while (i < source.len and depth > 0) {
+        switch (source[i]) {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            else => {},
+        }
+        i += 1;
+    }
+    if (depth != 0) return null;
+    return source[open + 1 .. i - 1];
+}
+
+/// Parse `.origins = .{ "a", "b" }` and return heap-allocated strings.
+fn parseOriginsList(allocator: std.mem.Allocator, entry_body: []const u8) ![]const []const u8 {
+    const section = arraySection(entry_body, ".origins") orelse return &.{};
+    var list: std.ArrayList([]const u8) = .empty;
+    defer list.deinit(allocator);
+    var i: usize = 0;
+    while (i < section.len) {
+        const q = std.mem.indexOfScalarPos(u8, section, i, '"') orelse break;
+        const end = std.mem.indexOfScalarPos(u8, section, q + 1, '"') orelse break;
+        try list.append(allocator, try allocator.dupe(u8, section[q + 1 .. end]));
+        i = end + 1;
+    }
+    return list.toOwnedSlice(allocator);
 }

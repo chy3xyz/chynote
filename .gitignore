@@ -1,0 +1,2 @@
+# Auto-generated bridge manifest. Regenerated on every `zig build` from app.zon.
+src/generated/

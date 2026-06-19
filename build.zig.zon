@@ -1,8 +1,8 @@
 .{
-    .name = .tolaria_zn,
-    .fingerprint = 0x7c1f6c7a5a707070,
+    .name = .chynote,
+    .fingerprint = 0xd9aea3877bd93a59,
     .version = "0.1.0",
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     .paths = .{ "build.zig", "build.zig.zon", "src", "assets", "frontend", "app.zon", "README.md" },
 }

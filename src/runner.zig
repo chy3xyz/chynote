@@ -1,6 +1,7 @@
 const std = @import("std");
 const build_options = @import("build_options");
 const zero_native = @import("zero-native");
+const globals = @import("globals");
 
 pub const StdoutTraceSink = struct {
     pub fn sink(self: *StdoutTraceSink) zero_native.trace.Sink {
@@ -26,6 +27,10 @@ pub const RunOptions = struct {
     builtin_bridge: zero_native.BridgePolicy = .{},
     security: zero_native.SecurityPolicy = .{},
     js_window_api: bool = false,
+    /// Optional extension registry. Currently unused by Chynote; plumbed
+    /// through so future lifecycle modules (file watcher, telemetry, settings
+    /// auto-load) can register without changing the runner signature again.
+    extensions: ?zero_native.extensions.ModuleRegistry = null,
 
     fn appInfo(self: RunOptions) zero_native.AppInfo {
         return .{
@@ -57,6 +62,8 @@ fn runNull(app: zero_native.App, options: RunOptions, init: std.process.Init) !v
     var app_info = options.appInfo();
     const store = prepareStateStore(init.io, init.environ_map, &app_info, &buffers);
     var null_platform = zero_native.NullPlatform.initWithOptions(.{}, webEngine(), app_info);
+    globals.g_platform_services = null_platform.platform().services;
+    globals.g_io = &init.io;
     var trace_sink = StdoutTraceSink{};
     var log_buffers: zero_native.debug.LogPathBuffers = .{};
     const log_setup = zero_native.debug.setupLogging(init.io, init.environ_map, app_info.bundle_id, &log_buffers) catch null;
@@ -81,6 +88,7 @@ fn runNull(app: zero_native.App, options: RunOptions, init: std.process.Init) !v
         .js_window_api = options.js_window_api,
         .automation = if (build_options.automation) zero_native.automation.Server.init(init.io, ".zig-cache/zero-native-automation", app_info.resolvedWindowTitle()) else null,
         .window_state_store = store,
+        .extensions = options.extensions,
     });
 
     try runtime.run(app);
@@ -90,8 +98,10 @@ fn runMacos(app: zero_native.App, options: RunOptions, init: std.process.Init) !
     var buffers: StateBuffers = undefined;
     var app_info = options.appInfo();
     const store = prepareStateStore(init.io, init.environ_map, &app_info, &buffers);
-    var mac_platform = try zero_native.platform.macos.MacPlatform.initWithOptions(zero_native.geometry.SizeF.init(720, 480), webEngine(), app_info);
+    var mac_platform = try zero_native.platform.macos.MacPlatform.initWithOptions(zero_native.geometry.SizeF.init(1200, 800), webEngine(), app_info);
     defer mac_platform.deinit();
+    globals.g_platform_services = mac_platform.platform().services;
+    globals.g_io = &init.io;
     var trace_sink = StdoutTraceSink{};
     var log_buffers: zero_native.debug.LogPathBuffers = .{};
     const log_setup = zero_native.debug.setupLogging(init.io, init.environ_map, app_info.bundle_id, &log_buffers) catch null;
@@ -116,6 +126,7 @@ fn runMacos(app: zero_native.App, options: RunOptions, init: std.process.Init) !
         .js_window_api = options.js_window_api,
         .automation = if (build_options.automation) zero_native.automation.Server.init(init.io, ".zig-cache/zero-native-automation", app_info.resolvedWindowTitle()) else null,
         .window_state_store = store,
+        .extensions = options.extensions,
     });
 
     try runtime.run(app);
@@ -125,8 +136,10 @@ fn runLinux(app: zero_native.App, options: RunOptions, init: std.process.Init) !
     var buffers: StateBuffers = undefined;
     var app_info = options.appInfo();
     const store = prepareStateStore(init.io, init.environ_map, &app_info, &buffers);
-    var linux_platform = try zero_native.platform.linux.LinuxPlatform.initWithOptions(zero_native.geometry.SizeF.init(720, 480), webEngine(), app_info);
+    var linux_platform = try zero_native.platform.linux.LinuxPlatform.initWithOptions(zero_native.geometry.SizeF.init(1200, 800), webEngine(), app_info);
     defer linux_platform.deinit();
+    globals.g_platform_services = linux_platform.platform().services;
+    globals.g_io = &init.io;
     var trace_sink = StdoutTraceSink{};
     var log_buffers: zero_native.debug.LogPathBuffers = .{};
     const log_setup = zero_native.debug.setupLogging(init.io, init.environ_map, app_info.bundle_id, &log_buffers) catch null;
@@ -151,6 +164,7 @@ fn runLinux(app: zero_native.App, options: RunOptions, init: std.process.Init) !
         .js_window_api = options.js_window_api,
         .automation = if (build_options.automation) zero_native.automation.Server.init(init.io, ".zig-cache/zero-native-automation", app_info.resolvedWindowTitle()) else null,
         .window_state_store = store,
+        .extensions = options.extensions,
     });
 
     try runtime.run(app);
@@ -160,8 +174,10 @@ fn runWindows(app: zero_native.App, options: RunOptions, init: std.process.Init)
     var buffers: StateBuffers = undefined;
     var app_info = options.appInfo();
     const store = prepareStateStore(init.io, init.environ_map, &app_info, &buffers);
-    var windows_platform = try zero_native.platform.windows.WindowsPlatform.initWithOptions(zero_native.geometry.SizeF.init(720, 480), webEngine(), app_info);
+    var windows_platform = try zero_native.platform.windows.WindowsPlatform.initWithOptions(zero_native.geometry.SizeF.init(1200, 800), webEngine(), app_info);
     defer windows_platform.deinit();
+    globals.g_platform_services = windows_platform.platform().services;
+    globals.g_io = &init.io;
     var trace_sink = StdoutTraceSink{};
     var log_buffers: zero_native.debug.LogPathBuffers = .{};
     const log_setup = zero_native.debug.setupLogging(init.io, init.environ_map, app_info.bundle_id, &log_buffers) catch null;
@@ -186,6 +202,7 @@ fn runWindows(app: zero_native.App, options: RunOptions, init: std.process.Init)
         .js_window_api = options.js_window_api,
         .automation = if (build_options.automation) zero_native.automation.Server.init(init.io, ".zig-cache/zero-native-automation", app_info.resolvedWindowTitle()) else null,
         .window_state_store = store,
+        .extensions = options.extensions,
     });
 
     try runtime.run(app);

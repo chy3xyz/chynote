@@ -87,7 +87,8 @@ describe('EditorContentLayout', () => {
 
     expect(container.querySelector('.title-section')).toBeNull()
     expect(screen.queryByTestId('title-field-input')).not.toBeInTheDocument()
-    expect(screen.getByTestId('single-editor-view')).toBeInTheDocument()
+    // PretextEditor (the current default) renders a .markdown-content div.
+    expect(container.querySelector('.markdown-content')).not.toBeNull()
   })
 
   it('shows the loading skeleton instead of stale editor chrome while switching tabs', () => {

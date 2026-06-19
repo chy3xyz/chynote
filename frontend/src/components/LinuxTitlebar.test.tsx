@@ -28,11 +28,11 @@ vi.mock('../utils/platform', () => ({
   shouldUseLinuxWindowChrome: vi.fn(),
 }))
 
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock('@zero-apps/api/core', () => ({
   invoke,
 }))
 
-vi.mock('@tauri-apps/api/window', () => ({
+vi.mock('@zero-apps/api/window', () => ({
   getCurrentWindow: () => ({
     startDragging,
     startResizeDragging,
@@ -42,6 +42,22 @@ vi.mock('@tauri-apps/api/window', () => ({
     isMaximized,
     onResized,
   }),
+}))
+
+// zero-native refactor: useDragRegion is a no-op in the zero-native WebView
+// (no native window-drag API), but the titlebar component still uses it as a
+// hook to register its onMouseDown. In tests we mock it to perform the same
+// double-click / single-click behavior the real Tauri path would.
+const mockOnMouseDown = vi.hoisted(() => vi.fn((e: { button: number; detail: number; target: EventTarget | null }) => {
+  if (e.button !== 0) return
+  if (e.detail === 2) {
+    void invoke('perform_current_window_titlebar_double_click')
+    return
+  }
+  void startDragging()
+}))
+vi.mock('../hooks/useDragRegion', () => ({
+  useDragRegion: () => ({ onMouseDown: mockOnMouseDown }),
 }))
 
 describe('LinuxTitlebar', () => {

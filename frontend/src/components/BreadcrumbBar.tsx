@@ -7,7 +7,6 @@ import { extractFrontmatterTitleFromContent, extractH1TitleFromContent } from '.
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ActionTooltip, type ActionTooltipCopy } from '@/components/ui/action-tooltip'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { WorkspaceInitialsBadge } from './WorkspaceInitialsBadge'
 import {
   DropdownMenu,
@@ -1050,42 +1049,41 @@ export const BreadcrumbBar = memo(function BreadcrumbBar({
   const overflowCollapsed = useBreadcrumbOverflow(titleRef, actionsRef)
 
   return (
-    <TooltipProvider>
-      <div
-        ref={barRef}
-        data-tauri-drag-region
-        data-title-hidden=""
-        onMouseDown={onMouseDown}
-        className="breadcrumb-bar flex shrink-0 items-center border-b border-transparent"
-        style={{
-          height: 52,
-          background: 'var(--background)',
-          padding: '6px 16px 6px var(--breadcrumb-bar-left-padding, 16px)',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div ref={titleRef} className="breadcrumb-bar__title min-w-0 flex-1 overflow-hidden">
-          <BreadcrumbTitle
-            content={content}
-            entry={entry}
-            locale={locale}
-            loadingTitle={loadingTitle}
-            onRenameFilename={onRenameFilename}
-          />
-        </div>
-        <div
-          aria-hidden="true"
-          data-tauri-drag-region
-          className="breadcrumb-bar__drag-spacer w-6 shrink-0"
-        />
-        <BreadcrumbActions
-          actionsRef={actionsRef}
+    <div
+      ref={barRef}
+      data-testid="breadcrumb-bar"
+      data-tauri-drag-region
+      data-title-hidden=""
+      onMouseDown={onMouseDown}
+      className="breadcrumb-bar flex shrink-0 items-center border-b border-transparent"
+      style={{
+        height: 52,
+        background: 'var(--background)',
+        padding: '6px 16px 6px var(--breadcrumb-bar-left-padding, 16px)',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div ref={titleRef} className="breadcrumb-bar__title min-w-0 flex-1 overflow-hidden">
+        <BreadcrumbTitle
+          content={content}
           entry={entry}
           locale={locale}
-          overflowCollapsed={overflowCollapsed}
-          {...actionProps}
+          loadingTitle={loadingTitle}
+          onRenameFilename={onRenameFilename}
         />
       </div>
-    </TooltipProvider>
+      <div
+        aria-hidden="true"
+        data-tauri-drag-region
+        className="breadcrumb-bar__drag-spacer w-6 shrink-0"
+      />
+      <BreadcrumbActions
+        actionsRef={actionsRef}
+        entry={entry}
+        locale={locale}
+        overflowCollapsed={overflowCollapsed}
+        {...actionProps}
+      />
+    </div>
   )
 })

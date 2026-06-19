@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { invoke } from '@tauri-apps/api/core'
-import { revealItemInDir } from '@tauri-apps/plugin-opener'
+import { invoke } from '@zero-apps/api/core'
+import { revealItemInDir } from '@zero-apps/plugin-opener'
 import {
   copyLocalPath,
   normalizeExternalUrl,
@@ -9,7 +9,7 @@ import {
   revealLocalPath,
 } from './url'
 
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock('@zero-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
@@ -61,6 +61,7 @@ describe('local file actions', () => {
   })
 
   it('opens local paths through the vault-scoped backend command', async () => {
+    vi.stubGlobal('isZeroNative', true)
     vi.stubGlobal('isTauri', true)
 
     await openLocalFile('/vault/attachments/report.pdf', '/vault')
@@ -71,7 +72,8 @@ describe('local file actions', () => {
     })
   })
 
-  it('reveals local paths through the Tauri opener plugin', async () => {
+  it('reveals local paths through the zero-native opener plugin', async () => {
+    vi.stubGlobal('isZeroNative', true)
     vi.stubGlobal('isTauri', true)
 
     await revealLocalPath('/vault/notes/project.md')

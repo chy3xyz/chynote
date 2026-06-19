@@ -58,7 +58,7 @@ describe('ai target provider contract', () => {
       local: false,
     })
     expect(aiModelProviderCatalogEntry('open_ai_compatible')).toMatchObject({
-      base_url: 'https://api.example.com/v1',
+      base_url: 'https://api.deepseek.com/v1',
       api_key_env_var: 'OPENAI_API_KEY',
       local: false,
     })

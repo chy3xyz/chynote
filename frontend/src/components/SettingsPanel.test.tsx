@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import { renderWithProviders } from '../test-utils/renderWithProviders'
 import { SettingsPanel } from './SettingsPanel'
 import type { Settings } from '../types'
 import { THEME_MODE_STORAGE_KEY } from '../lib/themeMode'
@@ -86,7 +87,7 @@ describe('SettingsPanel', () => {
   const localStorageMock = createStorageMock()
 
   function renderOpenSettings(settings: Settings = emptySettings) {
-    return render(
+    return renderWithProviders(
       <SettingsPanel open={true} settings={settings} onSave={onSave} onClose={onClose} />
     )
   }
@@ -115,14 +116,14 @@ describe('SettingsPanel', () => {
   })
 
   it('renders nothing when not open', () => {
-    const { container } = render(
+    const { container } = renderWithProviders(
       <SettingsPanel open={false} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(container.innerHTML).toBe('')
   })
 
   it('renders modal when open', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(screen.getByText('Settings')).toBeInTheDocument()
@@ -137,7 +138,7 @@ describe('SettingsPanel', () => {
       pi: { status: 'missing', version: null },
       gemini: { status: 'missing', version: null },
     }
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -171,7 +172,7 @@ describe('SettingsPanel', () => {
   })
 
   it('lets users disable AI surfaces without showing missing-agent setup', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{ ...emptySettings, ai_features_enabled: false }}
@@ -190,7 +191,7 @@ describe('SettingsPanel', () => {
   })
 
   it('updates the draft language when stored settings finish loading', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -208,7 +209,7 @@ describe('SettingsPanel', () => {
   }, 10_000)
 
   it('calls onSave with stable defaults on save', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -236,7 +237,7 @@ describe('SettingsPanel', () => {
   it('keeps vault identity management hidden until multiple vaults are enabled', () => {
     const onUpdateWorkspaceIdentity = vi.fn()
     const onReorderVaults = vi.fn()
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -300,7 +301,7 @@ describe('SettingsPanel', () => {
 
   it('confirms before removing a non-default vault from settings', () => {
     const onRemoveVault = vi.fn()
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{ ...emptySettings, multi_workspace_enabled: true }}
@@ -323,7 +324,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves Gitignored content visibility immediately for keyboard close', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -337,7 +338,7 @@ describe('SettingsPanel', () => {
   })
 
   it('renders All Notes file visibility switches off by default', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -348,7 +349,7 @@ describe('SettingsPanel', () => {
   })
 
   it('preserves saved All Notes file visibility switches', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{
@@ -368,7 +369,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves All Notes file visibility immediately before Escape close', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -385,7 +386,7 @@ describe('SettingsPanel', () => {
   })
 
   it('tracks All Notes visibility toggles with categorical metadata only', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -402,7 +403,7 @@ describe('SettingsPanel', () => {
   })
 
   it('defaults the color mode control to light', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -413,7 +414,7 @@ describe('SettingsPanel', () => {
   })
 
   it('defaults the language selector to system language', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -429,7 +430,7 @@ describe('SettingsPanel', () => {
   })
 
   it('defaults date display to friendly, note width to normal, and sidebar type pluralization to enabled', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -441,7 +442,7 @@ describe('SettingsPanel', () => {
   })
 
   it('preserves saved date display, default note width, and sidebar type pluralization preferences', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{
@@ -463,7 +464,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves date display, default note width, and sidebar type pluralization preferences', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -483,7 +484,7 @@ describe('SettingsPanel', () => {
   })
 
   it('keeps the language selector keyboard accessible', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -495,7 +496,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves the selected UI language and updates visible settings text', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -514,7 +515,7 @@ describe('SettingsPanel', () => {
   it('uses the stored color mode mirror when settings have no saved mode', () => {
     window.localStorage.setItem(THEME_MODE_STORAGE_KEY, 'dark')
 
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -561,7 +562,7 @@ describe('SettingsPanel', () => {
   })
 
   it('preserves a saved dark color mode until changed', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{ ...emptySettings, theme_mode: 'dark' }}
@@ -579,7 +580,7 @@ describe('SettingsPanel', () => {
   })
 
   it('defaults the release channel trigger to stable', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -588,7 +589,7 @@ describe('SettingsPanel', () => {
   })
 
   it('anchors the default agent dropdown with the popper strategy', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -598,7 +599,7 @@ describe('SettingsPanel', () => {
   })
 
   it('keeps keyboard opening enabled for the default agent dropdown', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -611,7 +612,7 @@ describe('SettingsPanel', () => {
   })
 
   it('treats a legacy beta release channel as stable', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={{ ...emptySettings, release_channel: 'beta' }}
@@ -630,7 +631,7 @@ describe('SettingsPanel', () => {
       release_channel: 'alpha',
     }
 
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={alphaSettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -642,28 +643,28 @@ describe('SettingsPanel', () => {
   })
 
   it('defaults the organization workflow switch to on', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(screen.getByRole('switch', { name: 'Organize notes explicitly' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('defaults auto-advance to the next inbox item to off', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(screen.getByRole('switch', { name: 'Auto-advance to next Inbox item' })).toHaveAttribute('aria-checked', 'false')
   })
 
   it('defaults the initial H1 auto-rename switch to on', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(screen.getByRole('switch', { name: 'Auto-rename untitled notes from first H1' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('defaults AutoGit to off with recommended thresholds', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -673,7 +674,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves AutoGit preferences when toggled and edited', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -690,7 +691,7 @@ describe('SettingsPanel', () => {
   })
 
   it('disables AutoGit controls when the current vault is not git-enabled', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -706,7 +707,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves the initial H1 auto-rename preference when toggled off', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -720,7 +721,7 @@ describe('SettingsPanel', () => {
 
   it('saves the organization workflow preference when toggled off', () => {
     const onSaveExplicitOrganization = vi.fn()
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -738,7 +739,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves the auto-advance inbox preference when toggled on', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
 
@@ -751,7 +752,7 @@ describe('SettingsPanel', () => {
   })
 
   it('calls onClose when Cancel is clicked', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     fireEvent.click(screen.getByText('Cancel'))
@@ -759,7 +760,7 @@ describe('SettingsPanel', () => {
   })
 
   it('calls onClose when close button is clicked', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     fireEvent.click(screen.getByTitle('Close settings'))
@@ -767,7 +768,7 @@ describe('SettingsPanel', () => {
   })
 
   it('calls onClose on Escape key', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     fireEvent.keyDown(screen.getByTestId('settings-panel'), { key: 'Escape' })
@@ -775,7 +776,7 @@ describe('SettingsPanel', () => {
   })
 
   it('saves on Cmd+Enter', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     fireEvent.keyDown(screen.getByTestId('settings-panel'), { key: 'Enter', metaKey: true })
@@ -786,7 +787,7 @@ describe('SettingsPanel', () => {
   })
 
   it('calls onClose when clicking backdrop', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     fireEvent.click(screen.getByTestId('settings-panel'))
@@ -794,14 +795,14 @@ describe('SettingsPanel', () => {
   })
 
   it('shows keyboard shortcut hint in footer', () => {
-    render(
+    renderWithProviders(
       <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
     )
     expect(screen.getByText(/to open settings/)).toBeInTheDocument()
   })
 
   it('keeps Tab focus inside the settings panel', () => {
-    render(
+    renderWithProviders(
       <>
         <button type="button" data-testid="background-action">Background</button>
         <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
@@ -825,7 +826,7 @@ describe('SettingsPanel', () => {
 
   it('copies the MCP config from the AI Agents section', () => {
     const onCopyMcpConfig = vi.fn()
-    render(
+    renderWithProviders(
       <SettingsPanel
         open={true}
         settings={emptySettings}
@@ -842,7 +843,7 @@ describe('SettingsPanel', () => {
 
   describe('Privacy & Telemetry section', () => {
     it('renders crash reporting and analytics toggles', () => {
-      render(
+      renderWithProviders(
         <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
       )
       expect(screen.getByTestId('settings-crash-reporting')).toBeInTheDocument()
@@ -857,7 +858,7 @@ describe('SettingsPanel', () => {
         analytics_enabled: false,
         anonymous_id: 'test-uuid',
       }
-      render(
+      renderWithProviders(
         <SettingsPanel open={true} settings={withTelemetry} onSave={onSave} onClose={onClose} />
       )
 
@@ -869,7 +870,7 @@ describe('SettingsPanel', () => {
     })
 
     it('saves telemetry settings when toggled and saved', () => {
-      render(
+      renderWithProviders(
         <SettingsPanel open={true} settings={emptySettings} onSave={onSave} onClose={onClose} />
       )
 

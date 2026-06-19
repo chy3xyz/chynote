@@ -112,27 +112,67 @@ investigation found them to be over-scoped. They are still on the backlog:
 
 ## Test status (as of 2026-06-19)
 
-`pnpm --dir frontend test --run` currently reports 195 failing tests across
-26 files. The failures are **pre-existing migration debt**, not regressions
-from the A0–A5 work above:
+`pnpm --dir frontend test --run` was at 195 failing tests across 26 files
+at the start of the cleanup pass. The cleanup reduced that to 50 failures
+across 16 files.
 
-- At least 9 failures are explicitly Tauri-named
-  (`src/utils/tauriCsp.test.ts`, `src/utils/tauriDragDropConfig.test.ts`,
+### What the cleanup pass fixed
+
+- Deleted pure-Tauri dead tests that asserted behavior against removed
+  `src-tauri/` configs and Tauri plugins:
+  `src/utils/tauriCsp.test.ts`, `src/utils/tauriDragDropConfig.test.ts`,
   `src/utils/tauriWindowControlPermissions.test.ts`,
-  `src/utils/url.test.ts` for the Tauri opener plugin,
-  `src/components/BreadcrumbBar.test.tsx` drag-region tests) — these test
-  behavior that was removed when the project migrated to zero-native.
-- `src/App.test.tsx` failures come from `data-testid="blocknote-view"` /
-  `"mock-editor"` elements not being rendered; this is a test-fixture
-  issue, not a code regression.
-- The remaining failures are BlockNote regression tests that exercise
-  pre-existing patches unrelated to the bridge refactor.
+  `src/hooks/useDragRegion.test.tsx` (the hook is Tauri-only).
+- Fixed `src/utils/url.test.ts` to stub `isZeroNative` alongside
+  `isTauri` — the local-file-action helpers gate on `isZeroNative()`,
+  not `isTauri`, so the original stub never reached the code path.
+- Added `src/test-utils/renderWithProviders.tsx` and switched the
+  StatusBar (73 tests), SettingsPanel (50 tests), BreadcrumbBar (57
+  tests), and BreadcrumbBar.visibility (5 tests) suites to use it. These
+  components render Radix Tooltip children, and the tests previously
+  failed with `Tooltip must be used within TooltipProvider`.
+- Fixed `src/lib/aiTargets.test.ts` to expect the actual
+  `api.deepseek.com` base URL (test was asserting an example URL that
+  the catalog no longer matched).
 
-The `zig build check-bridge` step (added in A1) verifies that the manifest
-and the handler arrays stay in sync, so the A1 changes cannot silently
-break the bridge without the build failing. CI should run it before any
-`pnpm test` step.
+### What remains (50 failures, all pre-existing component-refactor debt)
 
-A focused follow-up to delete or port the Tauri-specific tests is
-recommended as a separate session; it should be done before the next
-release so CI can be useful again.
+These require component-shape refactors, not test infrastructure fixes:
+
+- `src/components/Editor.test.tsx` (25): the test mocks `BlockNoteViewRaw`
+  and queries `data-testid="blocknote-view"` / `"blocknote-editable"`.
+  The component now uses `SingleEditorView`, which doesn't expose those
+  test-ids. Need to either add the test-ids to the new component or
+  port the tests to the new architecture.
+- `src/lib/blockNote*.regression.test.ts` (15): these test
+  pre-existing patches (checklist, code block, popover, side menu,
+  suggestion menu, table handles) that have stale assumptions about
+  BlockNote internals. Real bugs in the patches, not test infrastructure.
+- `src/components/editor-content/EditorContentLayout.test.tsx` (1): test
+  queries `data-testid="single-editor-view"` which the new layout
+  doesn't expose.
+- `src/components/LinuxTitlebar.test.tsx` (1): the test relies on
+  `useDragRegion` actually calling the bridge invoke on double-click,
+  but the hook is now a no-op outside Tauri. Need to mock the hook.
+- `src/App.test.tsx` (2): test expects `data-testid="blocknote-view"`
+  / `"mock-editor"` in the rendered shell; the App shell now renders
+  an `app-shell` div without those.
+- `src/indexBootDiagnostics.test.ts` (1): expects a ResizeObserver-loop
+  `event.preventDefault()` to set `defaultPrevented=true` on a manually
+  constructed `ErrorEvent`. The current index.html has the script,
+  but the test asserts jsdom behavior that may be subtle.
+- `src/mock-zero/vault-api.test.ts` (1): tests `tryVaultApi` from a
+  mock-zero module that has been removed/refactored.
+- `src/utils/releaseDownloadPage.test.ts` (2): reads
+  `.github/workflows/release.yml` which doesn't exist in this
+  project's layout.
+
+### CI recommendation
+
+- Run `zig build check-bridge` and `zig build` as required gates — these
+  catch A1-style manifest/handler drift.
+- The frontend test suite is no longer a useful gate until the 50
+  remaining component-shape refactors are done. A follow-up session
+  should either (a) add the missing test-ids to the new components so
+  the old tests pass, or (b) delete/port the old tests to the new
+  architecture.

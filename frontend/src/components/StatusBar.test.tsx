@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, within } from '@testing-library/react'
+import { renderWithProviders } from '../test-utils/renderWithProviders'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { StatusBar } from './StatusBar'
 import { StatusBarPrimarySection } from './status-bar/StatusBarSections'
@@ -35,7 +36,7 @@ function setWindowWidth(width: number) {
 }
 
 function renderDenseStatusBar() {
-  return render(
+  return renderWithProviders(
     <StatusBar
       noteCount={100}
       modifiedCount={5}
@@ -74,58 +75,58 @@ describe('StatusBar', () => {
   })
 
   it('does not display the bottom-bar note count readout', () => {
-    render(<StatusBar noteCount={9200} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={9200} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByText('9,200 notes')).not.toBeInTheDocument()
   })
 
   it('displays build number when provided', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b223" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b223" />)
     expect(screen.getByText('b223')).toBeInTheDocument()
   })
 
   it('displays fallback build number when not provided', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.getByText('b?')).toBeInTheDocument()
   })
 
   it('shows the vault reload badge while a reload is active', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isVaultReloading />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isVaultReloading />)
     expect(screen.getByTestId('status-vault-reloading')).toHaveAccessibleName('Reloading vault from disk')
   })
 
   it('calls onCheckForUpdates when clicking build number', () => {
     const onCheckForUpdates = vi.fn()
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b281" onCheckForUpdates={onCheckForUpdates} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b281" onCheckForUpdates={onCheckForUpdates} />)
     fireEvent.click(screen.getByTestId('status-build-number'))
     expect(onCheckForUpdates).toHaveBeenCalledOnce()
   })
 
   it('build number shows the update tooltip on focus', async () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b281" onCheckForUpdates={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} buildNumber="b281" onCheckForUpdates={vi.fn()} />)
     await expectTooltip(screen.getByRole('button', { name: 'Check for updates' }), 'Check for updates')
   }, 10_000)
 
   it('does not display branch name', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByText('main')).not.toBeInTheDocument()
   })
 
   it('shows Contribute button when callback is provided', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenFeedback={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenFeedback={vi.fn()} />)
     expect(screen.getByTestId('status-feedback')).toBeInTheDocument()
     expect(screen.getByText('Contribute')).toBeInTheDocument()
   })
 
   it('calls onOpenFeedback when Contribute is clicked', () => {
     const onOpenFeedback = vi.fn()
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenFeedback={onOpenFeedback} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenFeedback={onOpenFeedback} />)
     fireEvent.click(screen.getByTestId('status-feedback'))
     expect(onOpenFeedback).toHaveBeenCalledOnce()
   })
 
   it('shows and opens Docs from the bottom bar', () => {
     const onOpenDocs = vi.fn()
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenDocs={onOpenDocs} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenDocs={onOpenDocs} />)
     expect(screen.getByTestId('status-docs')).toHaveTextContent('Docs')
 
     fireEvent.click(screen.getByTestId('status-docs'))
@@ -134,7 +135,7 @@ describe('StatusBar', () => {
   })
 
   it('shows a theme toggle instead of the notifications placeholder', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -150,7 +151,7 @@ describe('StatusBar', () => {
   })
 
   it('end-aligns the theme tooltip to keep it inside the right window edge', async () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -172,7 +173,7 @@ describe('StatusBar', () => {
 
   it('calls onToggleThemeMode from the bottom bar', () => {
     const onToggleThemeMode = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -188,17 +189,17 @@ describe('StatusBar', () => {
   })
 
   it('displays active vault name', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.getByText('Main Vault')).toBeInTheDocument()
   })
 
   it('shows fallback "Vault" when vault path does not match', () => {
-    render(<StatusBar noteCount={100} vaultPath="/unknown/path" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/unknown/path" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.getByText('Vault')).toBeInTheDocument()
   })
 
   it('opens vault menu on click and shows all vault options', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
 
     // Click the vault button to open menu
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -207,7 +208,7 @@ describe('StatusBar', () => {
   })
 
   it('does not show workspace management or mount controls before opt-in', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -226,7 +227,7 @@ describe('StatusBar', () => {
   it('mounts and unmounts workspaces from the vault menu after opt-in', () => {
     const onSwitchVault = vi.fn()
     const onUpdateWorkspaceIdentity = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -246,7 +247,7 @@ describe('StatusBar', () => {
   })
 
   it('shows the active workspace real mount state so stale unmounted defaults can be repaired', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -269,7 +270,7 @@ describe('StatusBar', () => {
 
   it('uses the expanded multi-workspace vault picker layout', () => {
     const onOpenVaultSettings = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -313,7 +314,7 @@ describe('StatusBar', () => {
 
   it('calls onSwitchVault when selecting a different vault', () => {
     const onSwitchVault = vi.fn()
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={onSwitchVault} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={onSwitchVault} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
     // Click "Work Vault"
@@ -325,7 +326,7 @@ describe('StatusBar', () => {
   it('sets the default workspace instead of switching vaults after multi-workspace opt-in', () => {
     const onSetDefaultWorkspace = vi.fn()
     const onSwitchVault = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -348,7 +349,7 @@ describe('StatusBar', () => {
   it('unmounts the current default by moving the default to another included workspace first', () => {
     const onSetDefaultWorkspace = vi.fn()
     const onUpdateWorkspaceIdentity = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -372,7 +373,7 @@ describe('StatusBar', () => {
   })
 
   it('closes vault menu when clicking outside', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
     expect(screen.getByText('Work Vault')).toBeInTheDocument()
@@ -384,7 +385,7 @@ describe('StatusBar', () => {
   })
 
   it('toggles vault menu open and closed', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
 
     const vaultButton = screen.getByRole('button', { name: 'Switch vault' })
     fireEvent.click(vaultButton)
@@ -396,7 +397,7 @@ describe('StatusBar', () => {
   })
 
   it('shows "Open local folder" option in vault menu', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenLocalFolder={vi.fn()} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -405,7 +406,7 @@ describe('StatusBar', () => {
 
   it('calls onOpenLocalFolder when clicking "Open local folder"', () => {
     const onOpenLocalFolder = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenLocalFolder={onOpenLocalFolder} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -414,7 +415,7 @@ describe('StatusBar', () => {
   })
 
   it('shows "Create empty vault" option in vault menu', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCreateEmptyVault={vi.fn()} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -423,7 +424,7 @@ describe('StatusBar', () => {
 
   it('calls onCreateEmptyVault when clicking "Create empty vault"', () => {
     const onCreateEmptyVault = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCreateEmptyVault={onCreateEmptyVault} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -432,7 +433,7 @@ describe('StatusBar', () => {
   })
 
   it('shows add-vault options in vault menu', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -450,7 +451,7 @@ describe('StatusBar', () => {
   })
 
   it('shows the Getting Started clone action in the vault menu when provided', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -466,7 +467,7 @@ describe('StatusBar', () => {
 
   it('calls onCloneGettingStarted when clicking the vault menu action', () => {
     const onCloneGettingStarted = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -482,7 +483,7 @@ describe('StatusBar', () => {
   })
 
   it('exposes an in-row, hover-revealed remove action for non-active vaults', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -509,7 +510,7 @@ describe('StatusBar', () => {
 
   it('confirms before removing a vault from the vault menu', () => {
     const onRemoveVault = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -530,7 +531,7 @@ describe('StatusBar', () => {
   })
 
   it('shows Changes badge with count when modifiedCount is > 0', () => {
-    render(<StatusBar noteCount={100} modifiedCount={3} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={3} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.getByTestId('status-modified-count')).toBeInTheDocument()
     expect(screen.getByText('Changes')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
@@ -576,7 +577,7 @@ describe('StatusBar', () => {
 
   it('hides the active AI agent label in compact status layout', () => {
     setWindowWidth(880)
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -592,17 +593,17 @@ describe('StatusBar', () => {
   })
 
   it('does not show Changes badge when modifiedCount is 0', () => {
-    render(<StatusBar noteCount={100} modifiedCount={0} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={0} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByTestId('status-modified-count')).not.toBeInTheDocument()
   })
 
   it('does not show Changes badge when modifiedCount is not provided', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByTestId('status-modified-count')).not.toBeInTheDocument()
   })
 
   it('closes menu after clicking "Open local folder"', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onOpenLocalFolder={vi.fn()} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Switch vault' }))
@@ -613,7 +614,7 @@ describe('StatusBar', () => {
 
   it('calls onClickPending when clicking the pending count', () => {
     const onClickPending = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onClickPending={onClickPending} />
     )
     fireEvent.click(screen.getByTestId('status-modified-count'))
@@ -621,14 +622,14 @@ describe('StatusBar', () => {
   })
 
   it('pending changes tooltip is available on keyboard focus', async () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} modifiedCount={3} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onClickPending={vi.fn()} />
     )
     await expectTooltip(screen.getByRole('button', { name: 'View pending changes' }), 'View pending changes')
   })
 
   it('shows MCP warning badge when status is not_installed', async () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} mcpStatus="not_installed" />
     )
     expect(screen.getByTestId('status-mcp')).toBeInTheDocument()
@@ -636,28 +637,28 @@ describe('StatusBar', () => {
   })
 
   it('hides MCP badge when status is installed', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} mcpStatus="installed" />
     )
     expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
   })
 
   it('hides MCP badge when status is checking', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} mcpStatus="checking" />
     )
     expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
   })
 
   it('hides MCP badge when no mcpStatus prop provided', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />
     )
     expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
   })
 
   it('hides MCP badge when AI features are disabled', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} aiFeaturesEnabled={false} mcpStatus="not_installed" />
     )
     expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
@@ -665,7 +666,7 @@ describe('StatusBar', () => {
 
   it('calls onInstallMcp when clicking MCP badge with not_installed status', () => {
     const onInstallMcp = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} mcpStatus="not_installed" onInstallMcp={onInstallMcp} />
     )
     fireEvent.click(screen.getByTestId('status-mcp'))
@@ -673,21 +674,21 @@ describe('StatusBar', () => {
   })
 
   it('shows Pull required label when syncStatus is pull_required', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} syncStatus="pull_required" />
     )
     expect(screen.getByText('Pull required')).toBeInTheDocument()
   })
 
   it('shows an offline chip when offline', () => {
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isOffline={true} />
     )
     expect(screen.getByTestId('status-offline')).toHaveTextContent('Offline')
   })
 
   it('shows a no-remote chip when the active git vault has no remote', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -701,7 +702,7 @@ describe('StatusBar', () => {
 
   it('opens the add-remote flow when clicking the no-remote chip', () => {
     const onAddRemote = vi.fn()
-    render(
+    renderWithProviders(
       <TooltipProvider>
         <StatusBarPrimarySection
           modifiedCount={0}
@@ -723,7 +724,7 @@ describe('StatusBar', () => {
 
   it('calls onPullAndPush when clicking Pull required badge', () => {
     const onPullAndPush = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} syncStatus="pull_required" onPullAndPush={onPullAndPush} />
     )
     fireEvent.click(screen.getByTestId('status-sync'))
@@ -731,7 +732,7 @@ describe('StatusBar', () => {
   })
 
   it('shows git status popup when clicking idle sync badge', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -750,20 +751,20 @@ describe('StatusBar', () => {
   })
 
   it('shows History badge in status bar', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isGitVault />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isGitVault />)
     expect(screen.getByTestId('status-pulse')).toBeInTheDocument()
     expect(screen.getByText('History')).toBeInTheDocument()
   })
 
   it('calls onClickPulse when clicking History badge', () => {
     const onClickPulse = vi.fn()
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isGitVault onClickPulse={onClickPulse} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} isGitVault onClickPulse={onClickPulse} />)
     fireEvent.click(screen.getByTestId('status-pulse'))
     expect(onClickPulse).toHaveBeenCalledOnce()
   })
 
   it('replaces git controls with a missing-Git warning when isGitVault is false', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         modifiedCount={5}
@@ -784,7 +785,7 @@ describe('StatusBar', () => {
 
   it('opens Git setup from the missing-Git warning with mouse and keyboard', () => {
     const onInitializeGit = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -806,7 +807,7 @@ describe('StatusBar', () => {
 
   it('shows Commit button in status bar', () => {
     const onCommitPush = vi.fn()
-    render(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={onCommitPush} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={onCommitPush} />)
     expect(screen.getByTestId('status-commit-push')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('status-commit-push'))
     expect(onCommitPush).toHaveBeenCalledOnce()
@@ -814,7 +815,7 @@ describe('StatusBar', () => {
 
   it('activates the Commit button with the keyboard', () => {
     const onCommitPush = vi.fn()
-    render(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={onCommitPush} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={onCommitPush} />)
     const commitButton = screen.getByTestId('status-commit-push')
     commitButton.focus()
     fireEvent.keyDown(commitButton, { key: 'Enter' })
@@ -823,7 +824,7 @@ describe('StatusBar', () => {
 
   it('shows Commit progress feedback and blocks duplicate activation while pending', () => {
     const onCommitPush = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         modifiedCount={5}
@@ -847,7 +848,7 @@ describe('StatusBar', () => {
   })
 
   it('uses a local-only tooltip for the commit button when no remote is configured', async () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         modifiedCount={5}
@@ -862,17 +863,17 @@ describe('StatusBar', () => {
   })
 
   it('shows Commit button even when no modified files', () => {
-    render(<StatusBar noteCount={100} modifiedCount={0} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={0} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} onCommitPush={vi.fn()} />)
     expect(screen.getByTestId('status-commit-push')).toBeInTheDocument()
   })
 
   it('hides Commit button when no onCommitPush callback', () => {
-    render(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} modifiedCount={5} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByTestId('status-commit-push')).not.toBeInTheDocument()
   })
 
   it('shows Claude Code badge when installed', async () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="installed" claudeCodeVersion="1.0.20" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="installed" claudeCodeVersion="1.0.20" />)
     const badge = screen.getByTestId('status-claude-code')
     expect(badge).toBeInTheDocument()
     expect(screen.getByText('Claude Code')).toBeInTheDocument()
@@ -880,7 +881,7 @@ describe('StatusBar', () => {
   })
 
   it('shows Claude Code missing badge with warning when missing', async () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
     const badge = screen.getByTestId('status-claude-code')
     expect(badge).toBeInTheDocument()
     expect(screen.getByText('Claude Code missing')).toBeInTheDocument()
@@ -888,29 +889,29 @@ describe('StatusBar', () => {
   })
 
   it('opens install URL when clicking missing Claude Code badge', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
     fireEvent.click(screen.getByTestId('status-claude-code'))
     expect(openExternalUrl).toHaveBeenCalledWith('https://docs.anthropic.com/en/docs/claude-code')
   })
 
   it('opens install URL on Enter key for missing Claude Code badge', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="missing" />)
     fireEvent.keyDown(screen.getByTestId('status-claude-code'), { key: 'Enter' })
     expect(openExternalUrl).toHaveBeenCalledWith('https://docs.anthropic.com/en/docs/claude-code')
   })
 
   it('hides Claude Code badge when status is checking', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="checking" />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} claudeCodeStatus="checking" />)
     expect(screen.queryByTestId('status-claude-code')).not.toBeInTheDocument()
   })
 
   it('hides Claude Code badge when no claudeCodeStatus prop provided', () => {
-    render(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
+    renderWithProviders(<StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} />)
     expect(screen.queryByTestId('status-claude-code')).not.toBeInTheDocument()
   })
 
   it('shows the active AI agent directly in the bottom bar', () => {
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"
@@ -927,7 +928,7 @@ describe('StatusBar', () => {
 
   it('opens the AI agent switcher from the keyboard and switches agents', () => {
     const onSetDefaultAiAgent = vi.fn()
-    render(
+    renderWithProviders(
       <StatusBar
         noteCount={100}
         vaultPath="/Users/luca/Laputa"

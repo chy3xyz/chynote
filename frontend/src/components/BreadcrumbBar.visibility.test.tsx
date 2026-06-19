@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { render, screen } from '@testing-library/react'
+import { renderWithProviders } from '../test-utils/renderWithProviders'
 import { describe, expect, it, vi } from 'vitest'
 import { BreadcrumbBar } from './BreadcrumbBar'
 import './Editor.css'
@@ -48,12 +49,12 @@ const defaultProps = {
 
 describe('BreadcrumbBar filename visibility', () => {
   it('keeps the filename visible in the breadcrumb by default', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     expect(screen.getByText('test')).toBeVisible()
   })
 
   it('keeps the filename visible even when the bar is marked as title-hidden', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     container.querySelector('.breadcrumb-bar')?.setAttribute('data-title-hidden', '')
     expect(screen.getByText('test')).toBeVisible()
   })

@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react'
+import { renderWithProviders } from '../test-utils/renderWithProviders'
 import { describe, it, expect, vi } from 'vitest'
 import { BreadcrumbBar } from './BreadcrumbBar'
 import { formatShortcutDisplay } from '../hooks/appCommandCatalog'
@@ -70,7 +71,7 @@ function renderBreadcrumb(
   const entry = makeEntry(entryOverrides)
   return {
     entry,
-    ...render(<BreadcrumbBar entry={entry} {...defaultProps} {...props} />),
+    ...renderWithProviders(<BreadcrumbBar entry={entry} {...defaultProps} {...props} />),
   }
 }
 
@@ -150,7 +151,7 @@ function mockCollapsedBreadcrumbOverflow() {
 
 describe('BreadcrumbBar — drag region', () => {
   it('forwards mousedown events to the shared drag-region hook', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     const bar = container.querySelector('.breadcrumb-bar') as HTMLElement
 
     fireEvent.mouseDown(bar, { button: 0 })
@@ -159,13 +160,13 @@ describe('BreadcrumbBar — drag region', () => {
   })
 
   it('has data-tauri-drag-region on the container', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     const bar = container.firstElementChild as HTMLElement
     expect(bar.dataset.tauriDragRegion).toBeDefined()
   })
 
   it('marks the center spacer as a drag region', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     const spacer = container.querySelector('.breadcrumb-bar__drag-spacer')
     expect(spacer).toHaveAttribute('data-tauri-drag-region')
     expect(spacer).toHaveAttribute('aria-hidden', 'true')
@@ -174,14 +175,14 @@ describe('BreadcrumbBar — drag region', () => {
 
 describe('BreadcrumbBar — delete', () => {
   it('shows delete in the overflow menu', async () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onDelete={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onDelete={vi.fn()} />)
     const menu = await openOverflowMenu()
     expect(within(menu).getByRole('menuitem', { name: 'Delete this note' })).toBeInTheDocument()
   })
 
   it('calls onDelete from the overflow menu', async () => {
     const onDelete = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onDelete={onDelete} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onDelete={onDelete} />)
     const menu = await openOverflowMenu()
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Delete this note' }))
     expect(onDelete).toHaveBeenCalledOnce()
@@ -190,14 +191,14 @@ describe('BreadcrumbBar — delete', () => {
 
 describe('BreadcrumbBar — archive/unarchive', () => {
   it('shows archive in the overflow menu for non-archived note', async () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
     const menu = await openOverflowMenu()
     expect(within(menu).getByRole('menuitem', { name: 'Archive this note' })).toBeInTheDocument()
     expect(within(menu).queryByRole('menuitem', { name: 'Restore this archived note' })).not.toBeInTheDocument()
   })
 
   it('shows unarchive in the overflow menu for archived note', async () => {
-    render(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onArchive={vi.fn()} onUnarchive={vi.fn()} />)
     const menu = await openOverflowMenu()
     expect(within(menu).getByRole('menuitem', { name: 'Restore this archived note' })).toBeInTheDocument()
     expect(within(menu).queryByRole('menuitem', { name: 'Archive this note' })).not.toBeInTheDocument()
@@ -205,7 +206,7 @@ describe('BreadcrumbBar — archive/unarchive', () => {
 
   it('calls onArchive from the overflow menu', async () => {
     const onArchive = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={onArchive} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onArchive={onArchive} />)
     const menu = await openOverflowMenu()
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Archive this note' }))
     expect(onArchive).toHaveBeenCalledOnce()
@@ -213,7 +214,7 @@ describe('BreadcrumbBar — archive/unarchive', () => {
 
   it('calls onUnarchive from the overflow menu', async () => {
     const onUnarchive = vi.fn()
-    render(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onUnarchive={onUnarchive} />)
+    renderWithProviders(<BreadcrumbBar entry={archivedEntry} {...defaultProps} onUnarchive={onUnarchive} />)
     const menu = await openOverflowMenu()
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Restore this archived note' }))
     expect(onUnarchive).toHaveBeenCalledOnce()
@@ -223,7 +224,7 @@ describe('BreadcrumbBar — archive/unarchive', () => {
 describe('BreadcrumbBar — file actions', () => {
   it('reveals the current file from the breadcrumb toolbar', () => {
     const onRevealFile = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onRevealFile={onRevealFile} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onRevealFile={onRevealFile} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Reveal in Finder' }))
 
@@ -232,7 +233,7 @@ describe('BreadcrumbBar — file actions', () => {
 
   it('copies the current file path from the breadcrumb toolbar', () => {
     const onCopyFilePath = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onCopyFilePath={onCopyFilePath} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onCopyFilePath={onCopyFilePath} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy file path' }))
 
@@ -242,7 +243,7 @@ describe('BreadcrumbBar — file actions', () => {
 
 describe('BreadcrumbBar — organized shortcut hint', () => {
   it('shows Cmd+E on the organized toggle tooltip', async () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleOrganized={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleOrganized={vi.fn()} />)
     await expectTooltip(
       screen.getByRole('button', { name: 'Set note as organized' }),
       'Set note as organized',
@@ -251,7 +252,7 @@ describe('BreadcrumbBar — organized shortcut hint', () => {
   })
 
   it('hides the organized toggle when the workflow is disabled', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     expect(screen.queryByRole('button', { name: 'Set note as organized' })).not.toBeInTheDocument()
   })
 })
@@ -259,7 +260,7 @@ describe('BreadcrumbBar — organized shortcut hint', () => {
 describe('BreadcrumbBar — neighborhood action', () => {
   it("opens the current note's neighborhood from the map button", () => {
     const onEnterNeighborhood = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onEnterNeighborhood={onEnterNeighborhood} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onEnterNeighborhood={onEnterNeighborhood} />)
 
     fireEvent.click(screen.getByRole('button', { name: "Open note's neighborhood" }))
 
@@ -267,7 +268,7 @@ describe('BreadcrumbBar — neighborhood action', () => {
   })
 
   it('uses the requested neighborhood tooltip copy', async () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onEnterNeighborhood={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onEnterNeighborhood={vi.fn()} />)
 
     await expectTooltip(screen.getByRole('button', { name: "Open note's neighborhood" }), "Open note's neighborhood")
   })
@@ -275,7 +276,7 @@ describe('BreadcrumbBar — neighborhood action', () => {
 
 describe('BreadcrumbBar — title in breadcrumb (always rendered, CSS-toggled)', () => {
   it('always renders title elements in the DOM', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     expect(screen.getByText('Note')).toBeInTheDocument()
     expect(screen.getByText('›')).toBeInTheDocument()
     expect(screen.getByText('test')).toBeInTheDocument()
@@ -307,33 +308,33 @@ describe('BreadcrumbBar — title in breadcrumb (always rendered, CSS-toggled)',
 
   it('does not render emoji note icons in the breadcrumb filename', () => {
     const entryWithEmoji = { ...baseEntry, icon: '🚀' }
-    render(<BreadcrumbBar entry={entryWithEmoji} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={entryWithEmoji} {...defaultProps} />)
     expect(screen.getByTestId('breadcrumb-filename-trigger')).toHaveTextContent('test')
     expect(screen.queryByText('🚀')).not.toBeInTheDocument()
   })
 
   it('does not render Phosphor note icons in the breadcrumb filename', () => {
     const entryWithPhosphor = { ...baseEntry, icon: 'cooking-pot' }
-    render(<BreadcrumbBar entry={entryWithPhosphor} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={entryWithPhosphor} {...defaultProps} />)
     expect(screen.getByTestId('breadcrumb-filename-trigger')).toHaveTextContent('test')
     expect(screen.queryByTestId('breadcrumb-note-icon')).not.toBeInTheDocument()
   })
 
   it('falls back to "Note" when isA is null', () => {
     const entryNoType = { ...baseEntry, isA: null }
-    render(<BreadcrumbBar entry={entryNoType} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={entryNoType} {...defaultProps} />)
     expect(screen.getByText('Note')).toBeInTheDocument()
   })
 
   it('separator visibility is controlled by data-title-hidden while using the shared border chrome', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     const bar = container.querySelector('.breadcrumb-bar')!
     expect(bar).toHaveClass('border-b', 'border-transparent')
     expect(bar).toHaveAttribute('data-title-hidden')
   })
 
   it('keeps the breadcrumb title visible in raw mode', () => {
-    const { container } = render(
+    const { container } = renderWithProviders(
       <BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode onToggleRaw={vi.fn()} />,
     )
 
@@ -477,7 +478,7 @@ describe('BreadcrumbBar — filename controls', () => {
 
 describe('BreadcrumbBar — action buttons always right-aligned', () => {
   it('actions container has ml-auto so buttons are always right-aligned', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     const actions = container.querySelector('.breadcrumb-bar__actions')
     expect(actions).toBeInTheDocument()
     expect(actions).toHaveClass('ml-auto')
@@ -485,7 +486,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
   })
 
   it('keeps grouped action buttons evenly spaced', () => {
-    render(
+    renderWithProviders(
       <BreadcrumbBar
         entry={baseEntry}
         {...defaultProps}
@@ -503,7 +504,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
   })
 
   it('end-aligns toolbar action tooltips so zoomed windows keep them inside the right edge', async () => {
-    render(
+    renderWithProviders(
       <BreadcrumbBar
         entry={baseEntry}
         {...defaultProps}
@@ -521,7 +522,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
   })
 
   it('lets the title use the free space before the fixed drag gap', () => {
-    const { container } = render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    const { container } = renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
 
     expect(container.querySelector('.breadcrumb-bar__title')).toHaveClass('flex-1')
     expect(container.querySelector('.breadcrumb-bar__drag-spacer')).toHaveClass('w-6', 'shrink-0')
@@ -529,7 +530,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
   })
 
   it('does not render the unused backlinks or more-actions placeholders', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     expect(screen.queryByRole('button', { name: 'Backlinks are coming soon' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'More note actions are coming soon' })).not.toBeInTheDocument()
   })
@@ -538,7 +539,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
     const restoreMeasurement = mockCollapsedBreadcrumbOverflow()
 
     try {
-      const { container } = render(
+      const { container } = renderWithProviders(
         <BreadcrumbBar
           entry={baseEntry}
           {...defaultProps}
@@ -566,7 +567,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
   })
 
   it('does not duplicate visible lower-priority toolbar actions in the permanent overflow menu', async () => {
-    render(
+    renderWithProviders(
       <BreadcrumbBar
         entry={baseEntry}
         {...defaultProps}
@@ -589,7 +590,7 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
     const restoreMeasurement = mockCollapsedBreadcrumbOverflow()
 
     try {
-      const { container } = render(
+      const { container } = renderWithProviders(
         <BreadcrumbBar
           entry={baseEntry}
           {...defaultProps}
@@ -619,53 +620,53 @@ describe('BreadcrumbBar — action buttons always right-aligned', () => {
 describe('BreadcrumbBar — raw editor toggle', () => {
   it('shows Raw editor button with tooltip "Raw editor" when rawMode is off', () => {
     const onToggleRaw = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} />)
     expect(screen.getByRole('button', { name: 'Open the raw editor' })).toBeInTheDocument()
   })
 
   it('shows "Back to editor" tooltip when rawMode is on', () => {
     const onToggleRaw = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={true} onToggleRaw={onToggleRaw} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={true} onToggleRaw={onToggleRaw} />)
     expect(screen.getByRole('button', { name: 'Return to the editor' })).toBeInTheDocument()
   })
 
   it('calls onToggleRaw when raw button is clicked', () => {
     const onToggleRaw = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open the raw editor' }))
     expect(onToggleRaw).toHaveBeenCalledOnce()
   })
 
   it('hides raw toggle when forceRawMode is true (non-markdown file)', () => {
     const onToggleRaw = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={true} onToggleRaw={onToggleRaw} forceRawMode={true} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={true} onToggleRaw={onToggleRaw} forceRawMode={true} />)
     expect(screen.queryByRole('button', { name: 'Open the raw editor' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Return to the editor' })).not.toBeInTheDocument()
   })
 
   it('shows raw toggle when forceRawMode is false (markdown file)', () => {
     const onToggleRaw = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} forceRawMode={false} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} rawMode={false} onToggleRaw={onToggleRaw} forceRawMode={false} />)
     expect(screen.getByRole('button', { name: 'Open the raw editor' })).toBeInTheDocument()
   })
 })
 
 describe('BreadcrumbBar — note width toggle', () => {
   it('shows the wide width action while normal', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="normal" onToggleNoteWidth={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="normal" onToggleNoteWidth={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: 'Switch to wide note width' })).toBeInTheDocument()
   })
 
   it('shows the normal width action while wide', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="wide" onToggleNoteWidth={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="wide" onToggleNoteWidth={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: 'Switch to normal note width' })).toBeInTheDocument()
   })
 
   it('calls onToggleNoteWidth when the width button is clicked', () => {
     const onToggleNoteWidth = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="normal" onToggleNoteWidth={onToggleNoteWidth} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} noteWidth="normal" onToggleNoteWidth={onToggleNoteWidth} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to wide note width' }))
 
@@ -675,13 +676,13 @@ describe('BreadcrumbBar — note width toggle', () => {
 
 describe('BreadcrumbBar — AI panel toggle', () => {
   it('hides the AI panel action when no toggle callback is available', () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} />)
     expect(screen.queryByRole('button', { name: 'Open the AI panel' })).not.toBeInTheDocument()
   })
 
   it('shows and runs the AI panel action when a toggle callback is available', () => {
     const onToggleAIChat = vi.fn()
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleAIChat={onToggleAIChat} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleAIChat={onToggleAIChat} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Open the AI panel' }))
 
@@ -692,7 +693,7 @@ describe('BreadcrumbBar — AI panel toggle', () => {
 describe('BreadcrumbBar — table of contents toggle', () => {
   it('shows the table of contents action and calls the toggle handler', () => {
     const onToggleTableOfContents = vi.fn()
-    render(
+    renderWithProviders(
       <BreadcrumbBar
         entry={baseEntry}
         {...defaultProps}
@@ -706,7 +707,7 @@ describe('BreadcrumbBar — table of contents toggle', () => {
   })
 
   it('uses the close label while the table of contents panel is active', () => {
-    render(
+    renderWithProviders(
       <BreadcrumbBar
         entry={baseEntry}
         {...defaultProps}
@@ -719,7 +720,7 @@ describe('BreadcrumbBar — table of contents toggle', () => {
   })
 
   it('shows the table of contents shortcut in the button tooltip', async () => {
-    render(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleTableOfContents={vi.fn()} />)
+    renderWithProviders(<BreadcrumbBar entry={baseEntry} {...defaultProps} onToggleTableOfContents={vi.fn()} />)
     await expectTooltip(
       screen.getByRole('button', { name: 'Open table of contents' }),
       'Open table of contents',
@@ -732,7 +733,7 @@ describe('BreadcrumbBar — table of contents toggle', () => {
     const restoreMeasurement = mockCollapsedBreadcrumbOverflow()
 
     try {
-      const { container } = render(
+      const { container } = renderWithProviders(
         <BreadcrumbBar
           entry={baseEntry}
           {...defaultProps}

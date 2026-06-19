@@ -1,0 +1,3 @@
+[submodule "zero-native"]
+	path = zero-native
+	url = https://github.com/chy3xyz/zero-native.git

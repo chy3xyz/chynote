@@ -2,7 +2,7 @@ import { ArrowSquareOut as ExternalLink, Copy } from '@phosphor-icons/react'
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 console.log('[SingleEditorView] Module loaded')
-import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@zero-apps/api/core'
 import {
   BlockNoteViewRaw,
   ComponentsContext,
@@ -26,7 +26,7 @@ import { useEditorTheme } from '../hooks/useTheme'
 import { useImageDrop } from '../hooks/useImageDrop'
 import { useImageLightbox } from '../hooks/useImageLightbox'
 import { createTranslator, type AppLocale } from '../lib/i18n'
-import { isTauri } from '../mock-tauri'
+import { isZeroNative } from '../mock-zero'
 import { buildTypeEntryMap } from '../utils/typeColors'
 import { preFilterWikilinks, deduplicateByPath, MIN_QUERY_LENGTH } from '../utils/wikilinkSuggestions'
 import { filterPersonMentions, PERSON_MENTION_MIN_QUERY } from '../utils/personMentionSuggestions'
@@ -41,12 +41,12 @@ import {
   openEditorAttachmentOrUrl,
 } from './editorAttachmentActions'
 import { useBlockNoteSideMenuHoverGuard } from './blockNoteSideMenuHoverGuard'
-import { getTolariaSlashMenuItems } from './tolariaEditorFormattingConfig'
+import { getChynoteSlashMenuItems } from './chynoteEditorFormattingConfig'
 import {
-  TolariaFormattingToolbar,
-  TolariaFormattingToolbarController,
-} from './tolariaEditorFormatting'
-import { TolariaSideMenu } from './tolariaBlockNoteSideMenu'
+  ChynoteFormattingToolbar,
+  ChynoteFormattingToolbarController,
+} from './chynoteEditorFormatting'
+import { ChynoteSideMenu } from './chynoteBlockNoteSideMenu'
 import { useEditorLinkActivation } from './useEditorLinkActivation'
 import { findNearestTextCursorBlock } from './blockNoteCursorTarget'
 import { ImageLightbox } from './ImageLightbox'
@@ -110,6 +110,37 @@ type BlockNoteRenderRecoveryState = {
   retries: number
 }
 
+function BlockNoteRenderFailureNotice({
+  error,
+}: {
+  error: unknown
+}) {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    <div
+      className="editor-render-failure"
+      role="alert"
+      data-testid="editor-render-failure"
+      style={{
+        margin: '1.5rem',
+        padding: '1rem 1.25rem',
+        borderRadius: '8px',
+        border: '1px solid var(--feedback-warning-border, #d4a017)',
+        background: 'var(--feedback-warning-bg, #fff8e6)',
+        color: 'var(--feedback-warning-text, #5c4a00)',
+        fontSize: '0.875rem',
+        lineHeight: 1.5,
+      }}
+    >
+      <p style={{ fontWeight: 600, margin: 0 }}>无法渲染此 Markdown 笔记</p>
+      <p style={{ margin: '0.5rem 0 0' }}>{message}</p>
+      <p style={{ margin: '0.75rem 0 0', opacity: 0.85 }}>
+        请使用工具栏切换到 Raw Editor 查看并修复内容。
+      </p>
+    </div>
+  )
+}
+
 class BlockNoteRenderRecoveryBoundary extends Component<{
   children: (recoveryKey: number) => ReactNode
   onRecover?: (attempt: number) => void
@@ -146,8 +177,8 @@ class BlockNoteRenderRecoveryBoundary extends Component<{
   render() {
     if (this.state.error) {
       if (this.state.retries >= MAX_BLOCKNOTE_RENDER_RECOVERY_RETRIES) {
-        console.error('[BlockNoteRenderRecovery] Max retries exhausted, re-throwing:', this.state.error)
-        throw this.state.error
+        console.error('[BlockNoteRenderRecovery] Max retries exhausted, showing inline fallback:', this.state.error)
+        return <BlockNoteRenderFailureNotice error={this.state.error} />
       }
 
       return null
@@ -269,7 +300,7 @@ function handleToolbarMouseDownCapture(
   event.preventDefault()
 }
 
-function TolariaOpenLinkButton({
+function ChynoteOpenLinkButton({
   url,
   vaultPath,
 }: Pick<LinkToolbarProps, 'url'> & { vaultPath?: string }) {
@@ -291,7 +322,7 @@ function TolariaOpenLinkButton({
   )
 }
 
-function TolariaLinkToolbar({ vaultPath, ...props }: LinkToolbarProps & { vaultPath?: string }) {
+function ChynoteLinkToolbar({ vaultPath, ...props }: LinkToolbarProps & { vaultPath?: string }) {
   return (
     <LinkToolbar {...props}>
       <EditLinkButton
@@ -301,7 +332,7 @@ function TolariaLinkToolbar({ vaultPath, ...props }: LinkToolbarProps & { vaultP
         setToolbarOpen={props.setToolbarOpen}
         setToolbarPositionFrozen={props.setToolbarPositionFrozen}
       />
-      <TolariaOpenLinkButton url={props.url} vaultPath={vaultPath} />
+      <ChynoteOpenLinkButton url={props.url} vaultPath={vaultPath} />
       <DeleteLinkButton
         range={props.range}
         setToolbarOpen={props.setToolbarOpen}
@@ -467,7 +498,7 @@ function codeBlockText(codeBlock: HTMLElement): string {
 }
 
 async function writeClipboardText(text: string): Promise<void> {
-  if (isTauri()) {
+  if (isZeroNative()) {
     await invoke('copy_text_to_clipboard', { text })
     return
   }
@@ -1143,7 +1174,7 @@ function useSuggestionMenuItems(options: {
   const getSlashMenuItems = useCallback(async (query: string) => {
     try {
       return guardSuggestionMenuItems(
-        await Promise.resolve(getTolariaSlashMenuItems(editor, query, {
+        await Promise.resolve(getChynoteSlashMenuItems(editor, query, {
           mathTitle: t('editor.slash.math'),
         })),
         runEditorAction,
@@ -1175,10 +1206,10 @@ function EditorInteractionControllers({
 }: EditorInteractionControllersProps) {
   return (
     <>
-      <SideMenuController sideMenu={TolariaSideMenu} />
-      <TolariaFormattingToolbarController
+      <SideMenuController sideMenu={ChynoteSideMenu} />
+      <ChynoteFormattingToolbarController
         formattingToolbar={(props) => (
-          <TolariaFormattingToolbar {...props} vaultPath={vaultPath} />
+          <ChynoteFormattingToolbar {...props} vaultPath={vaultPath} />
         )}
         floatingUIOptions={{
           elementProps: {
@@ -1188,7 +1219,7 @@ function EditorInteractionControllers({
       />
       <LinkToolbarController
         linkToolbar={(props) => (
-          <TolariaLinkToolbar {...props} vaultPath={vaultPath} />
+          <ChynoteLinkToolbar {...props} vaultPath={vaultPath} />
         )}
         floatingUIOptions={{
           elementProps: {
@@ -1214,17 +1245,6 @@ function EditorInteractionControllers({
       />
     </>
   )
-}
-
-/** Insert an image block after the current cursor position. */
-function useInsertImageCallback(editor: ReturnType<typeof useCreateBlockNote>) {
-  const editorRef = useRef(editor)
-  useEffect(() => { editorRef.current = editor }, [editor])
-  return useCallback((url: string) => {
-    const e = editorRef.current
-    const cursorBlock = e.getTextCursorPosition().block
-    e.insertBlocks([{ type: 'image' as const, props: { url } }], cursorBlock, 'after')
-  }, [])
 }
 
 function useRichEditorPlainTextPasteTarget(options: {
@@ -1299,8 +1319,7 @@ export function SingleEditorView({ editor, entries, onNavigateWikilink, onChange
     suppressNextContainerClickRef,
   })
   const handleEditorChange = useCompositionAwareEditorChange({ containerRef, onChange })
-  const onImageUrl = useInsertImageCallback(editor)
-  const { isDragOver } = useImageDrop({ containerRef, onImageUrl, vaultPath })
+  const { isDragOver } = useImageDrop({ containerRef })
   const lightbox = useImageLightbox({ containerRef })
   const {
     clearCopyTarget,

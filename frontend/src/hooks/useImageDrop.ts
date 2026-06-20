@@ -4,18 +4,6 @@ import { isZeroNative } from '../mock-zero'
 import { attachmentAssetUrlFromPath } from '../utils/vaultAttachments'
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff']
-
-type ImageUrlHandler = (url: string) => void
-type CopyImageToVaultRequest = {
-  sourcePath: string
-  vaultPath: string
-}
-type DroppedImagesRequest = {
-  imagePaths: string[]
-  vaultPath: string | undefined
-  onImageUrl: ImageUrlHandler | undefined
-}
 
 function hasImageFiles(dt: DataTransfer): boolean {
   for (let i = 0; i < dt.items.length; i++) {
@@ -25,12 +13,7 @@ function hasImageFiles(dt: DataTransfer): boolean {
   return false
 }
 
-function isImagePath(path: string): boolean {
-  const ext = path.split('.').pop()?.toLowerCase() ?? ''
-  return IMAGE_EXTENSIONS.includes(ext)
-}
-
-/** Upload an image file — saves to vault/attachments in Tauri, returns data URL in browser */
+/** Upload an image file — saves to vault/attachments in the native bridge, returns data URL in browser. */
 export async function uploadImageFile(file: File, vaultPath?: string): Promise<string> {
   if (isZeroNative() && vaultPath) {
     const buf = await file.arrayBuffer()
@@ -53,43 +36,18 @@ export async function uploadImageFile(file: File, vaultPath?: string): Promise<s
   })
 }
 
-/** Copy a dropped file (by OS path) into vault/attachments and return its asset URL. */
-async function copyImageToVault({
-  sourcePath,
-  vaultPath,
-}: CopyImageToVaultRequest): Promise<string> {
-  const savedPath = await invoke<string>('copy_image_to_vault', { vaultPath, sourcePath })
-  return attachmentAssetUrlFromPath({ path: savedPath })
-}
-
-function insertDroppedImages({
-  imagePaths,
-  vaultPath,
-  onImageUrl,
-}: DroppedImagesRequest): void {
-  if (imagePaths.length === 0) return
-  if (!vaultPath || !onImageUrl) return
-
-  for (const sourcePath of imagePaths) {
-    void copyImageToVault({ sourcePath, vaultPath }).then(onImageUrl)
-  }
-}
-
-// zero-native refactor: Tauri native drag-drop events (`tauri://drag-drop`,
-// `tauri://drag-leave`) were only emitted by Tauri's WebView. zero-native
-// does not emit them, so the native drop listener is dead code. The HTML5
-// DnD path below is the working path for both web and zero-native WebView.
-// When zero-native gains file-drop support, register the listener via
-// `getCurrentWindow().onDragDropEvent(...)` from @zero-apps/api/window.
+// zero-native refactor: the legacy Tauri `tauri://drag-drop` event
+// path was removed because zero-native does not emit those events and
+// `getCurrentWindow().onDragDropEvent` is currently a stub. The HTML5
+// DnD path below is the working path for both web and the zero-native
+// WebView. When zero-native gains file-drop support, register the
+// native listener via @zero-apps/api/window.
 
 interface UseImageDropOptions {
   containerRef: RefObject<HTMLDivElement | null>
-  /** Called with an asset URL for each image dropped into the container. */
-  onImageUrl?: (url: string) => void
-  vaultPath?: string
 }
 
-export function useImageDrop({ containerRef, onImageUrl, vaultPath }: UseImageDropOptions) {
+export function useImageDrop({ containerRef }: UseImageDropOptions) {
   const [isDragOver, setIsDragOver] = useState(false)
 
   // HTML5 DnD visual feedback; the browser/wkwebview fires these for both

@@ -100,36 +100,46 @@ git add zero-native/EXPECTED_SHA && git commit
 
 ## Deferred items
 
-The original refactor plan called out three items that were deferred after
-investigation found them to be over-scoped. They are still on the backlog:
+The original refactor plan called out four items that were deferred.
+Three remain pure code quality; one (A4) had a real user-facing impact
+and was patched in this session to unblock the AI chat panel.
 
-| Plan step | Reason for deferring |
-|-----------|----------------------|
-| A3: extensions registry | `zero-native.extensions.ModuleHooks.command_fn` is internal, not a bridge path. None of our long-lived services genuinely need lifecycle hooks today. The field is plumbed through `RunOptions`/`RuntimeOptions` so it's ready to use. |
-| A4: async streaming | `system.stream_claude_chat` and `system.stream_ai_agent` are currently stub mocks that return a string literal. Real streaming would be a new feature, not a refactor. See comment in `src/system.zig:741`. |
-| A5: dedupe runner.zig | The four `runXxx` functions are 90% copy-pasted but each has a slightly different platform init (`try` vs not, `defer` etc.). Dedupe is high-value but invasive; left for a follow-up. |
-| A5: frontend command-name map | `frontend/src/@zero-apps/api/core/index.ts:3` still maintains a camelCase → snake_case map. Dropping it requires renaming all frontend call sites; left for a follow-up. |
+| Plan step | Status | Notes |
+|-----------|--------|-------|
+| A3: extensions registry | Deferred | `zero-native.extensions.ModuleHooks.command_fn` is internal, not a bridge path. None of our long-lived services genuinely need lifecycle hooks today. The field is plumbed through `RunOptions`/`RuntimeOptions` so it's ready to use. |
+| A4: async streaming | **Patched (minimal)** | Previously: stub handlers never emitted `claude-stream` / `ai-agent-stream` events, so the AI chat panel hung (no text appeared, `Done` never fired). Now: `emitClaudeStreamDoneFromStub` / `emitAiAgentStreamDoneFromStub` in `src/globals.zig` emit a `{"kind":"Done"}` event so the frontend's `listen(...)` callback runs and the chat panel unblocks. Real streaming (chunks, tool calls, content) is still a follow-up — the proper fix is converting these handlers to `AsyncHandler` with `AsyncResponder` and spawning the CLI process. |
+| A5: dedupe runner.zig | Deferred (code quality) | The four `runXxx` functions are 90% copy-pasted but each has a slightly different platform init (`try` vs not, `defer` etc.). Dedupe is high-value but invasive; left for a follow-up. |
+| A5: frontend command-name map | Deferred (code quality) | `frontend/src/@zero-apps/api/core/index.ts:3` still maintains a camelCase → snake_case map. Dropping it requires renaming all frontend call sites; left for a follow-up. |
 
 ## Test status (as of 2026-06-19)
 
 `pnpm --dir frontend test --run` was at 195 failing tests across 26 files
 at the start of the zero-native refactor cleanup. The cleanup pass
-reduced that to **0 failures + 1 skipped** across 343 test files
-(3970 passing tests + 1 documented skip).
+reduced that to **0 failures + 2 skipped** across 343 test files
+(3969 passing + 2 documented skips).
 
-The single skip is `App.test.tsx` >
-"pressing Escape in Neighborhood mode blurs the editor before
-unwinding note-list history" — the test depended on `Cmd+click` on
-a note-list item to enter Neighborhood, which the zero-native refactor
-removed (Cmd is now used for multi-select in the note list). A port
-attempt to the new entry path (clicking a FAVORITES sidebar item)
-hits a real race: the App's startup state machine keeps the favorites
-section in `sidebar-loading-favorites` state even after the mocked
-`list_vault` has resolved, so the `getByText('Alpha')` waitFor in
-the favorites section never settles. The 14 other Neighborhood tests
-pass; a fix requires either (a) targeting the startup-state machine
-directly to add a test seam, or (b) rewriting the test in
-conjunction with refactoring the focus model.
+The skips are:
+
+1. `App.test.tsx` > "pressing Escape in Neighborhood mode blurs the
+   editor before unwinding note-list history" — the test depended on
+   `Cmd+click` on a note-list item to enter Neighborhood, which the
+   zero-native refactor removed (Cmd is now used for multi-select). A
+   port to the new Favorites-click entry path hits a real race in
+   the App's startup state machine (the favorites section stays in
+   `sidebar-loading-favorites` state even after the mocked
+   `list_vault` resolves). The 14 other Neighborhood tests pass; a
+   fix requires either (a) targeting the startup-state machine
+   directly to add a test seam, or (b) rewriting the test in
+   conjunction with refactoring the focus model.
+
+2. `SingleEditorView.test.tsx` > "shows the drag overlay and inserts
+   dropped images after the active cursor block" — the test exercised
+   the Tauri-era `useImageDrop({ onImageUrl, vaultPath })` API. The
+   zero-native refactor removed those args from `useImageDrop` (the
+   native `tauri://drag-drop` events never fire in zero-native). The
+   new architecture delegates image insertion to the editor's own
+   paste/drop handlers, which should be tested at the editor level
+   rather than at the SingleEditorView orchestration level.
 
 ## zero-native fusion pass (this session)
 

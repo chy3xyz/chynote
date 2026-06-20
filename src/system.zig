@@ -754,7 +754,7 @@ pub fn handleStreamClaudeChat(
     output: []u8,
 ) anyerror![]u8 {
     _ = context;
-    _ = invocation;
+    _ = globals.emitClaudeStreamDoneFromStub(invocation.source);
     const result = "\"mock-session\"";
     const len = @min(result.len, output.len);
     @memcpy(output[0..len], result[0..len]);
@@ -767,7 +767,7 @@ pub fn handleStreamAiAgent(
     output: []u8,
 ) anyerror![]u8 {
     _ = context;
-    _ = invocation;
+    _ = globals.emitAiAgentStreamDoneFromStub(invocation.source);
     const result = "null";
     const out_len = @min(result.len, output.len);
     @memcpy(output[0..out_len], result[0..out_len]);

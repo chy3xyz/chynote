@@ -122,10 +122,14 @@ The single skip is `App.test.tsx` >
 unwinding note-list history" — the test depended on `Cmd+click` on
 a note-list item to enter Neighborhood, which the zero-native refactor
 removed (Cmd is now used for multi-select in the note list). A port
-attempt hit a stale-element issue: the second favorite click (Beta)
-detaches the note-list container and breaks subsequent header
-assertions. The 14 other Neighborhood tests pass. Defer to a follow-up
-that targets the new note-list focus management directly.
+attempt to the new entry path (clicking a FAVORITES sidebar item)
+hits a real race: the App's startup state machine keeps the favorites
+section in `sidebar-loading-favorites` state even after the mocked
+`list_vault` has resolved, so the `getByText('Alpha')` waitFor in
+the favorites section never settles. The 14 other Neighborhood tests
+pass; a fix requires either (a) targeting the startup-state machine
+directly to add a test seam, or (b) rewriting the test in
+conjunction with refactoring the focus model.
 
 ## zero-native fusion pass (this session)
 

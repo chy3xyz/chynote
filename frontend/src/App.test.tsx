@@ -1377,17 +1377,20 @@ describe("App", () => {
     });
   });
 
-  // Deferred: the original "pressing Escape in Neighborhood mode blurs the
-  // editor before unwinding note-list history" test relied on Cmd+click
-  // on a note-list item to enter Neighborhood. The zero-native refactor
-  // removed that gesture (Cmd is now used for multi-select in the note
-  // list). The new entry path is clicking a favorite in the FAVORITES
-  // sidebar section. A port attempt hit a stale-element issue: the
-  // second favorite click (Beta) detaches the note-list container and
-  // breaks subsequent header assertions. The 14 other Neighborhood
-  // tests in this file pass; this single focus + history-rewind
-  // assertion needs a follow-up that targets the new note-list focus
-  // management directly.
+  // Deferred: "pressing Escape in Neighborhood mode blurs the editor
+  // before unwinding note-list history" needs a focused TDD pass on the
+  // new note-list focus management. The zero-native refactor changed
+  // Neighborhood's entry path from Cmd+click (removed; Cmd is now
+  // multi-select) to clicking a FAVORITES sidebar item. Porting the
+  // test to the new path hits a real race: the App's startup state
+  // machine keeps the favorites section in `sidebar-loading-favorites`
+  // state even after the mocked `list_vault` has resolved, so the
+  // `getByText('Alpha')` waitFor in the favorites section never
+  // settles. The 14 other Neighborhood tests pass; a fix requires
+  // either (a) targeting the startup-state machine directly to add
+  // a test seam, or (b) rewriting the test in conjunction with
+  // refactoring the focus model. The earlier note is in
+  // docs/PACKAGING.md.
   it.skip(
     "pressing Escape in Neighborhood mode blurs the editor before unwinding note-list history",
   );

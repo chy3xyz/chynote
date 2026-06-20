@@ -1,2 +1,57 @@
+# Zig
+.zig-cache/
+zig-out/
+build-*.txt
+*.zig.zon.lock
+
 # Auto-generated bridge manifest. Regenerated on every `zig build` from app.zon.
 src/generated/
+
+# Zig coverage / debug
+*.profraw
+*.profdata
+coverage/
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# Frontend build artifacts
+frontend/dist/
+frontend/.vite/
+frontend/.vite-cache/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
+# Vite / Vitest
+.vite/
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+*.log.*
+logs/
+.zero-native/
+.zero-native-automation/
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Generated demo / fixtures
+generated-fixtures/
+.pyc/
+__pycache__/

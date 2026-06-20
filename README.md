@@ -1,66 +1,102 @@
-# Tolaria Zn
+# Chynote Zn
 
-A minimal zero-native desktop app with a web frontend.
+A personal knowledge and life management desktop app. The vault on disk is
+the source of truth; a native shell hosts a React frontend; the backend is
+Zig. Built on [zero-native](https://github.com/chy3xyz/zero-native).
 
-## Setup
+## What it is
 
-`zig build dev`, `zig build run`, and `zig build package` install frontend dependencies automatically. To install them explicitly, run:
+Four-panel UI (sidebar → note list → editor → inspector) over a folder of
+plain markdown with YAML frontmatter. Opinionated conventions, AI-agent
+integration (Claude Code / Codex / Pi), git-based sync, multi-vault
+support, wikilink graph, keyword search, MCP server, alpha/stable release
+channels. See [`docs/VISION.md`](docs/VISION.md) for the full picture and
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how the pieces fit.
 
-```sh
-npm install --prefix frontend
-```
-
-The generated build defaults to this zero-native framework path:
-
-```text
-/Users/n0x/.nvm/versions/node/v23.11.1/lib/node_modules/zero-native
-
-```
-
-Override it with `-Dzero-native-path=/path/to/zero-native` if you move this app.
-
-## Commands
+## Quick start
 
 ```sh
-zig build dev
-zig build run
-zig build test
-zig build package
-zero-native doctor --manifest app.zon
+zig build dev      # install frontend deps if needed, run Vite + native shell
+zig build run      # build + launch the bare binary (frontend dist is served from disk)
+zig build package  # produce a real .app bundle at zig-out/package/
 ```
 
-`zig build dev` starts the frontend dev server from `app.zon`, waits for it, and launches the native shell with `ZERO_NATIVE_FRONTEND_URL`.
+`zig build dev` and `zig build run` rebuild `frontend/dist` automatically.
+The native binary reads assets from `frontend/dist` at runtime — no embedded
+frontend bundle.
 
-Frontend:
+### Build steps
 
-- Type: react
-- Production assets: `frontend/dist`
-- Dev URL: `http://127.0.0.1:5173/`
+| Step | What it does |
+|------|--------------|
+| `zig build` | Compile `chynote-zn` and rebuild `frontend/dist` |
+| `zig build test` | Run Zig unit tests |
+| `zig build check-bridge` | Verify `src/main.zig` handlers match `app.zon` |
+| `zig build package` | Produce a macOS `.app` at `zig-out/package/` |
+| `scripts/check-submodule.sh` | Verify `zero-native` submodule SHA matches `EXPECTED_SHA` |
 
-## Web Engines
+CI must run `zig build check-bridge` and `scripts/check-submodule.sh`
+before any other build step. See [`docs/PACKAGING.md`](docs/PACKAGING.md).
 
-The generated app defaults to the system WebView. On macOS you can switch to Chromium/CEF with:
+### Override paths
 
 ```sh
-zero-native cef install
-zig build run -Dplatform=macos -Dweb-engine=chromium
+-Dzero-native-path=/path/to/zero-native   # use a different fork
+-Dcef-dir=/path/to/cef                    # use a different CEF runtime
 ```
 
-`zero-native cef install` downloads zero-native's prepared CEF runtime, including the native wrapper library.
+## Stack
 
-For one-command local setup, opt into build-time install:
+- **Backend**: [Zig 0.17](https://ziglang.org/) — `src/`
+- **Frontend**: React 19 + TypeScript + Vite — `frontend/`
+- **Native shell**: [zero-native](https://github.com/chy3xyz/zero-native) (forked submodule) — system WebView on macOS
 
-```sh
-zig build run -Dplatform=macos -Dweb-engine=chromium -Dcef-auto-install=true
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/VISION.md`](docs/VISION.md) | What the app is and why |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit (filesystem-as-truth, design principles) |
+| [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md) | Detailed setup, dir structure, feature guides |
+| [`docs/PACKAGING.md`](docs/PACKAGING.md) | Build matrix, deferred items, test status |
+| [`docs/ZERO-NATIVE-ARCHITECTURE.md`](docs/ZERO-NATIVE-ARCHITECTURE.md) | The native shell, bridge, manifest, app.zon |
+| [`docs/BRIDGE-COMMANDS.md`](docs/BRIDGE-COMMANDS.md) | How to add a new bridge command (end-to-end) |
+| [`docs/ABSTRACTIONS.md`](docs/ABSTRACTIONS.md) | Glossary of terms |
+| [`docs/adr/`](docs/adr/) | Architecture decision records |
+
+## Repository layout
+
 ```
-
-Use `-Dcef-dir=/path/to/cef` when you keep CEF outside the platform default under `third_party/cef`.
-
-```sh
-zero-native doctor --web-engine chromium
+chynote/
+├── src/                          # Zig backend
+│   ├── main.zig                  # Entry point, bridge handler registry
+│   ├── runner.zig                # RunOptions → platform-specific runner
+│   ├── vault.zig                 # Vault scanning, parsing, content ops
+│   ├── git.zig                   # Git integration
+│   ├── system.zig                # System commands (CLI detection, etc.)
+│   ├── globals.zig               # Shared state, event emitters
+│   ├── parsing.zig               # Frontmatter + text parsing
+│   └── generated/                # Build-time codegen output (gitignored)
+│
+├── frontend/                     # React + TypeScript
+│   ├── src/
+│   │   ├── App.tsx               # Root component
+│   │   ├── components/            # ~98 UI components
+│   │   ├── hooks/                # ~40 custom hooks
+│   │   ├── lib/                  # Cross-cutting helpers
+│   │   ├── utils/                # Domain utilities
+│   │   ├── mock-zero/            # Browser-mode mocks
+│   │   └── @zero-apps/api/       # zero-native bridge type definitions
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── zero-native/                  # Submodule (pinned SHA, see EXPECTED_SHA)
+│
+├── app.zon                       # Single source of truth for the bridge
+├── build.zig                     # Top-level build script
+├── build.zig.zon
+├── scripts/
+│   ├── check-submodule.sh        # CI guard
+│   └── check-bridge.zig          # Build-time handler/manifest cross-check
+└── docs/                         # All documentation
 ```
-
-Diagnostics:
-
-- Set `ZERO_NATIVE_LOG_DIR` to override the platform log directory during development.
-- Set `ZERO_NATIVE_LOG_FORMAT=text|jsonl` to choose persistent log format.

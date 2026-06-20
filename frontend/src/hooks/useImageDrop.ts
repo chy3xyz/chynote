@@ -1,17 +1,12 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import type { Event as TauriEvent, UnlistenFn } from '@tauri-apps/api/event'
-import type { DragDropEvent as TauriDragDropPayload } from '@tauri-apps/api/webview'
-import { isTauri } from '../mock-tauri'
+import { useEffect, useState, type RefObject } from 'react'
+import { invoke } from '@zero-apps/api/core'
+import { isZeroNative } from '../mock-zero'
 import { attachmentAssetUrlFromPath } from '../utils/vaultAttachments'
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff']
-const TAURI_DRAG_DROP_EVENT = 'tauri://drag-drop'
-const TAURI_DRAG_LEAVE_EVENT = 'tauri://drag-leave'
 
 type ImageUrlHandler = (url: string) => void
-type TauriDropEvent = TauriEvent<TauriDragDropPayload>
 type CopyImageToVaultRequest = {
   sourcePath: string
   vaultPath: string
@@ -37,7 +32,7 @@ function isImagePath(path: string): boolean {
 
 /** Upload an image file — saves to vault/attachments in Tauri, returns data URL in browser */
 export async function uploadImageFile(file: File, vaultPath?: string): Promise<string> {
-  if (isTauri() && vaultPath) {
+  if (isZeroNative() && vaultPath) {
     const buf = await file.arrayBuffer()
     const bytes = new Uint8Array(buf)
     let binary = ''
@@ -80,46 +75,27 @@ function insertDroppedImages({
   }
 }
 
-function cleanupNativeDropListeners(unlisteners: UnlistenFn[]): void {
-  for (const unlisten of unlisteners) {
-    void Promise.resolve()
-      .then(unlisten)
-      .catch(() => {})
-  }
-}
-
-async function registerNativeDropListeners(
-  handler: (event: TauriDropEvent) => void,
-): Promise<UnlistenFn[]> {
-  const { getCurrentWebview } = await import('@tauri-apps/api/webview')
-  const webview = getCurrentWebview()
-  const unlisteners: UnlistenFn[] = []
-
-  try {
-    unlisteners.push(await webview.listen<TauriDragDropPayload>(TAURI_DRAG_DROP_EVENT, handler))
-    unlisteners.push(await webview.listen<TauriDragDropPayload>(TAURI_DRAG_LEAVE_EVENT, handler))
-    return unlisteners
-  } catch (error) {
-    cleanupNativeDropListeners(unlisteners)
-    throw error
-  }
-}
+// zero-native refactor: Tauri native drag-drop events (`tauri://drag-drop`,
+// `tauri://drag-leave`) were only emitted by Tauri's WebView. zero-native
+// does not emit them, so the native drop listener is dead code. The HTML5
+// DnD path below is the working path for both web and zero-native WebView.
+// When zero-native gains file-drop support, register the listener via
+// `getCurrentWindow().onDragDropEvent(...)` from @zero-apps/api/window.
 
 interface UseImageDropOptions {
   containerRef: RefObject<HTMLDivElement | null>
-  /** Called with an asset URL for each image dropped via Tauri native drag-drop. */
+  /** Called with an asset URL for each image dropped into the container. */
   onImageUrl?: (url: string) => void
   vaultPath?: string
 }
 
 export function useImageDrop({ containerRef, onImageUrl, vaultPath }: UseImageDropOptions) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const onImageUrlRef = useRef(onImageUrl)
-  useEffect(() => { onImageUrlRef.current = onImageUrl }, [onImageUrl])
-  const vaultPathRef = useRef(vaultPath)
-  useEffect(() => { vaultPathRef.current = vaultPath }, [vaultPath])
 
-  // HTML5 DnD visual feedback; BlockNote handles browser-mode uploads.
+  // HTML5 DnD visual feedback; the browser/wkwebview fires these for both
+  // in-window drags and (for the zero-native WebView) native file drops
+  // once file-drop support is added. Until then, the editor handles
+  // image uploads via its own paste/drop handlers.
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -151,41 +127,6 @@ export function useImageDrop({ containerRef, onImageUrl, vaultPath }: UseImageDr
       container.removeEventListener('drop', handleDrop)
     }
   }, [containerRef])
-
-  // Tauri native file drop intercepts OS file drops that bypass HTML5 DnD.
-  useEffect(() => {
-    if (!isTauri()) return
-
-    let unlisteners: UnlistenFn[] = []
-    let mounted = true
-
-    void (async () => {
-      try {
-        const nextUnlisteners = await registerNativeDropListeners((event) => {
-          if (event.payload.type === 'drop') {
-            setIsDragOver(false)
-            insertDroppedImages({
-              imagePaths: event.payload.paths.filter(isImagePath),
-              vaultPath: vaultPathRef.current,
-              onImageUrl: onImageUrlRef.current,
-            })
-            return
-          }
-          setIsDragOver(false)
-        })
-        if (mounted) unlisteners = nextUnlisteners
-        else cleanupNativeDropListeners(nextUnlisteners)
-      } catch {
-        // Tauri webview API not available.
-      }
-    })()
-
-    return () => {
-      mounted = false
-      cleanupNativeDropListeners(unlisteners)
-      unlisteners = []
-    }
-  }, [])
 
   return { isDragOver }
 }

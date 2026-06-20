@@ -1,8 +1,48 @@
+// Polyfill ES2019 array methods for older WKWebView JS contexts.
+if (!Array.prototype.flat) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(Array.prototype as any).flat = function (depth?: number): any[] {
+    const d = isNaN(depth as number) ? 1 : Math.floor(Number(depth))
+    const result: any[] = []
+    const flatten = (arr: any[], currentDepth: number) => {
+      for (let i = 0; i < arr.length; i++) {
+        const item = arr[i]
+        if (currentDepth > 0 && Array.isArray(item)) {
+          flatten(item, currentDepth - 1)
+        } else {
+          result.push(item)
+        }
+      }
+    }
+    flatten(this, d)
+    return result
+  }
+}
+if (!Array.prototype.flatMap) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(Array.prototype as any).flatMap = function (callback: any, thisArg?: any): any[] {
+    return (this as any).map(callback, thisArg).flat(1)
+  }
+}
+
 // import { StrictMode } from 'react'
 import * as Sentry from '@sentry/react'
 import { createRoot } from 'react-dom/client'
+import { markVaultApiMissing } from './mock-zero/vault-api'
+import { probeBridge } from './lib/bridge'
+import { installBridgeTest, installForceBridge } from './utils/bridgeTest'
 
-console.log('[Tolaria] main.tsx loaded')
+console.log('[Chynote] main.tsx loaded')
+markVaultApiMissing()
+
+// Auto-test bridge at startup — logs results to console
+probeBridge().then(ok => {
+  installBridgeTest()
+  installForceBridge()
+  if (!ok) {
+    console.log('%c⚠️  Bridge not available — using mock (no filesystem persistence)', 'color:orange;font-size:14px')
+  }
+})
 
 window.onerror = function(message, source, lineno, colno, error) {
   console.error('[window.onerror]', { message, source, lineno, colno, error, stack: error?.stack })
@@ -67,11 +107,12 @@ function preventNativeContextMenu(event: MouseEvent): void {
 document.addEventListener('dragover', preventFileDropNavigation, true)
 document.addEventListener('drop', preventFileDropNavigation, true)
 
-// Disable native WebKit context menu in Tauri (WKWebView intercepts right-click
-// at native level before React's synthetic events can call preventDefault).
-// Capture phase fires first → prevents native menu; React bubble phase still fires
-// → our custom context menus (e.g. sidebar right-click) work correctly.
-if ('__TAURI__' in window || '__TAURI_INTERNALS__' in window) {
+// Disable native WebKit context menu in the zero-native WebView (WKWebView
+// intercepts right-click at the native level before React's synthetic events
+// can call preventDefault). Capture phase fires first → prevents the native
+// menu; React bubble phase still fires → our custom context menus (e.g. the
+// sidebar right-click menu) work correctly.
+if (typeof window !== 'undefined' && window.zero !== undefined) {
   document.addEventListener('contextmenu', preventNativeContextMenu, true)
 }
 
@@ -106,12 +147,12 @@ window.__laputaTest = {
     }
 
     if ('__TAURI__' in window || '__TAURI_INTERNALS__' in window) {
-      const { invoke } = await import('@tauri-apps/api/core')
+      const { invoke } = await import('@zero-apps/api/core')
       return invoke('trigger_menu_command', { id })
     }
 
     if (!window.__laputaTest?.dispatchBrowserMenuCommand) {
-      throw new Error('Tolaria test bridge is missing dispatchBrowserMenuCommand')
+      throw new Error('Chynote test bridge is missing dispatchBrowserMenuCommand')
     }
 
     window.__laputaTest.dispatchBrowserMenuCommand(id)
@@ -139,13 +180,30 @@ function isResizeObserverLoopError(error: unknown): boolean {
     || message.includes('ResizeObserver loop limit exceeded')
 }
 
+function formatErrorDetails(error: unknown): string {
+  if (error == null) return 'null'
+  if (error instanceof Error) {
+    const parts: string[] = []
+    if (error.name) parts.push(`Name: ${error.name}`)
+    if (error.message) parts.push(`Message: ${error.message}`)
+    if (error.cause) parts.push(`Cause: ${formatErrorDetails(error.cause)}`)
+    if (error.stack) parts.push(`Stack:\n${error.stack}`)
+    return parts.join('\n')
+  }
+  try {
+    return JSON.stringify(error, null, 2)
+  } catch {
+    return String(error)
+  }
+}
+
 function showFatalRenderError(
   error: unknown,
   errorInfo: { componentStack?: string },
 ): void {
-  const existing = document.getElementById('tolaria-fatal-render-error')
+  const existing = document.getElementById('chynote-fatal-render-error')
   const overlay = existing ?? document.createElement('pre')
-  overlay.id = 'tolaria-fatal-render-error'
+  overlay.id = 'chynote-fatal-render-error'
   overlay.style.cssText = [
     'position:fixed',
     'inset:24px',
@@ -160,13 +218,13 @@ function showFatalRenderError(
     'white-space:pre-wrap',
   ].join(';')
 
-  const message = error instanceof Error ? error.stack ?? error.message : String(error)
   overlay.textContent = [
-    'Tolaria render error',
+    'Chynote render error',
     '',
-    message,
+    formatErrorDetails(error),
     '',
-    errorInfo.componentStack ?? '',
+    'Component stack:',
+    errorInfo.componentStack ?? '(none)',
   ].join('\n')
   document.body.appendChild(overlay)
 }
@@ -187,12 +245,12 @@ function captureRecoverableReactRootError(
   error: unknown,
   errorInfo: { componentStack?: string },
 ): void {
-  console.error('[Tolaria] captureRecoverableReactRootError:', error)
+  console.error('[Chynote] captureRecoverableReactRootError:', error)
   const componentStack = errorInfo.componentStack ?? ''
-  console.error('[Tolaria] componentStack:', componentStack)
+  console.error('[Chynote] componentStack:', componentStack)
   if (isResizeObserverLoopError(error)) return
   const isRecoverable = isRecoveredBlockNoteRenderError(error, componentStack)
-  console.error('[Tolaria] isRecoveredBlockNoteRenderError:', isRecoverable)
+  console.error('[Chynote] isRecoveredBlockNoteRenderError:', isRecoverable)
   if (isRecoverable) return
 
   captureReactRootError(error, { componentStack })

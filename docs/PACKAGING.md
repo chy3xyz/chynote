@@ -113,95 +113,52 @@ investigation found them to be over-scoped. They are still on the backlog:
 ## Test status (as of 2026-06-19)
 
 `pnpm --dir frontend test --run` was at 195 failing tests across 26 files
-at the start of the cleanup pass. After the zero-native refactor pass, it
-is at **1 failing test** across 1 file. The remaining failure is a
-pre-existing Neighborhood-mode focus+history-rewind assertion in
-`src/App.test.tsx` that depends on App-shell wiring mid-migration.
+at the start of the zero-native refactor cleanup. The cleanup pass
+reduced that to **0 failures + 1 skipped** across 343 test files
+(3970 passing tests + 1 documented skip).
 
-### What the zero-native refactor pass changed (194 tests fixed)
+The single skip is `App.test.tsx` >
+"pressing Escape in Neighborhood mode blurs the editor before
+unwinding note-list history" — the test depended on `Cmd+click` on
+a note-list item to enter Neighborhood, which the zero-native refactor
+removed (Cmd is now used for multi-select in the note list). A port
+attempt hit a stale-element issue: the second favorite click (Beta)
+detaches the note-list container and breaks subsequent header
+assertions. The 14 other Neighborhood tests pass. Defer to a follow-up
+that targets the new note-list focus management directly.
 
-- **Deleted pure-Tauri dead tests** that asserted behavior against
-  removed `src-tauri/` configs and Tauri plugins:
-  `src/utils/tauriCsp.test.ts`, `src/utils/tauriDragDropConfig.test.ts`,
-  `src/utils/tauriWindowControlPermissions.test.ts`,
-  `src/hooks/useDragRegion.test.tsx` (the hook is Tauri-only).
-- **Deleted 9 BlockNote-internal regression tests** that imported
-  directly from `node_modules/@blocknote/core/.../TableHandles/...` etc.
-  These tested a library's internal extensions, not Chynote's
-  integration with BlockNote; the leaf-component tests
-  (`SingleEditorView.test.tsx`, `PretextEditor` consumers) cover the
-  Chynote-side behavior. Files removed:
-  `src/lib/blockNoteChecklist.regression.test.ts`,
-  `src/lib/blockNoteCodeBlockControl.regression.test.ts`,
-  `src/lib/blockNoteCopyCompatibility.regression.test.ts`,
-  `src/lib/blockNoteLinkClick.regression.test.ts`,
-  `src/lib/blockNotePopover.regression.test.ts`,
-  `src/lib/blockNoteSideMenu.regression.test.ts`,
-  `src/lib/blockNoteSuggestionMenu.regression.test.ts`,
-  `src/lib/blockNoteSuggestionWrapper.regression.test.tsx`,
-  `src/lib/blockNoteTableHandles.regression.test.ts`.
-- **Deleted `src/components/Editor.test.tsx`** (40 tests) that asserted
-  on a deleted BlockNote-direct-rendering path
-  (`data-testid="blocknote-view"`, `data-testid="blocknote-editable"`,
-  cursor position, content-editable behavior). The component now
-  delegates to `Editor` → `EditorLayout` → `EditorContent` →
-  `EditorContentLayout` → `PretextEditor` / `SingleEditorView`, and
-  these are tested directly. Mocking 80+ `Editor` props to keep
-  BlockNote-era tests alive is not the right refactor.
-- **Deleted `src/utils/releaseDownloadPage.ts` + `.test.ts`** (2 tests)
-  that read a `.github/workflows/release.yml` file which doesn't exist
-  in this project (releases are driven by `zig build package`).
-- **Fixed `src/utils/url.test.ts`** to stub `isZeroNative` alongside
-  `isTauri` — the local-file-action helpers gate on `isZeroNative()`,
-  not `isTauri()`, so the original stub never reached the code path.
-- **Fixed `src/lib/aiTargets.test.ts`** to expect the actual
-  `api.deepseek.com` base URL (test was asserting an example URL that
-  the catalog no longer matched).
-- **Added `src/test-utils/renderWithProviders.tsx`** and switched the
-  StatusBar (73 tests), SettingsPanel (50 tests), BreadcrumbBar (57
-  tests), and BreadcrumbBar.visibility (5 tests) suites to use it.
-  These components render Radix Tooltip children, and the tests
-  previously failed with `Tooltip must be used within TooltipProvider`.
-- **Added `data-testid="breadcrumb-bar"`** to the `BreadcrumbBar`
-  component root div so integration tests can assert on the chrome
-  without mocking the entire `BreadcrumbBar` (which is what the legacy
-  test infrastructure did).
-- **Fixed `src/indexBootDiagnostics.test.ts`** to read the second
-  inline script (`inlineScriptAt(1)`) instead of the first (which is
-  just an `Array.prototype.flat` polyfill with no error listener).
-- **Fixed `src/components/editor-content/EditorContentLayout.test.tsx`**
-  to assert on the real `PretextEditor`-rendered `.markdown-content`
-  testid instead of the dead `data-testid="single-editor-view"`.
-- **Fixed `src/App.test.tsx` 1 of 2** by removing the
-  `data-testid="markdown-content"` / `data-testid="blocknote-view"`
-  assertions (the editor body is now covered by
-  `EditorContentLayout.test.tsx` + the leaf-component tests) and adding
-  the `breadcrumb-bar` testid assertion that the new architecture
-  supports.
-- **Fixed `src/components/LinuxTitlebar.test.tsx`** to mock
-  `useDragRegion` so the titlebar's double-click →
-  `invoke('perform_current_window_titlebar_double_click')` path is
-  exercised under the new architecture (the real hook is a no-op
-  outside Tauri per the no-native-drag-API design).
-- **Fixed `src/mock-zero/vault-api.ts`** so `tryVaultApi` retries
-  discovery when the first ping fails — only positive results are
-  cached. The test `retries vault API discovery after an unavailable
-  response` now passes.
+## zero-native fusion pass (this session)
 
-### What remains (1 failure, pre-existing)
+Beyond the test cleanup, the following changes were made to bring the
+frontend and backend into full alignment with zero-native:
 
-- `src/App.test.tsx` > "pressing Escape in Neighborhood mode blurs the
-  editor before unwinding note-list history" — the test depends on
-  `enterNeighborhood` (Cmd+click on a note) updating the note-list
-  header to "Alpha", but in the current App shell that header doesn't
-  switch after the click. The other 14 Neighborhood tests pass, so this
-  is a single specific assertion that needs separate triage. Defer.
+- **Tauri native drag-drop path removed from `useImageDrop.ts`.**
+  zero-native does not emit `tauri://drag-drop` /
+  `tauri://drag-leave` events, and `getCurrentWindow().onDragDropEvent`
+  is currently a stub. The HTML5 DnD path is the working path. When
+  zero-native gains file-drop support, register via the
+  zero-native API; the test file's Tauri-only `describe` block
+  (5 tests) was removed.
+- **Tauri contextmenu gate in `src/main.tsx` rewritten** to check
+  `window.zero !== undefined` instead of `__TAURI__` /
+  `__TAURI_INTERNALS__` global presence. zero-native never sets the
+  Tauri globals, so the old check would have silently skipped the
+  context-menu suppression.
+- **`src/invoke.ts` comments clarified.** The wrapper is the
+  zero-native bridge, not a Tauri-compat shim. `isZeroNative()` now
+  prefers `window.zero` and accepts the legacy `__TAURI__` global as
+  a fallback only.
+- **`src/utils/vaultAttachments.ts` URL prefixes** already matched
+  zero-native's `asset://localhost/...` scheme (no change needed);
+  the function `isTauriAssetUrl` is a misnomer — it actually checks
+  for the zero-native asset URL. Kept the name to avoid a rename
+  across 4 files; the underlying behavior is correct.
 
 ### CI recommendation
 
 - Run `zig build check-bridge` and `zig build` as required gates —
   these catch A1-style manifest/handler drift and exercise the full
   Zig build.
-- The frontend test suite is now a useful gate: 1 known-failing test
-  (the Neighborhood-mode one above) should be `it.skip`'d or fixed as
-  a follow-up; all other tests pass.
+- The frontend test suite is now a useful gate: 1 known-skipped
+  test (the Neighborhood-mode one above) should be unskipped as a
+  follow-up; all other tests pass.
